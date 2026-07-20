@@ -1,0 +1,15 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: astree-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${SQLSERVER_SA_PASSWORD}"
+    ports:
+      - "1433:1433"
+    volumes:
+      - astree_sql_data:/var/opt/mssql
+    restart: unless-stopped
+
+volumes:
+  astree_sql_data:
