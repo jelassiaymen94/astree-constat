@@ -1,0 +1,166 @@
+{
+  "sourceFile": "donnees_assurance_tunisie2.xlsx",
+  "sourceSha256": "ddfbc9d397e912ecf49f407d843eb3aca3cb591c0b917a88aa5c8ff2929e8b5e",
+  "rule": "Date_Debut_Contrat <= Date_Sinistre_Claim <= Date_Fin_Contrat",
+  "sourceRows": {
+    "Clients": 10000,
+    "Polices_Assurance": 17509,
+    "Vehicules": 17509,
+    "Sinistres": 5252
+  },
+  "claims": {
+    "analyzed": 5252,
+    "valid": 3460,
+    "excluded": 1792,
+    "excludedBeforeContractStart": 1182,
+    "excludedAfterContractEnd": 610
+  },
+  "generatedRows": {
+    "Clients": 2048,
+    "Contrats": 2179,
+    "Vehicules": 2179,
+    "Sinistres": 3460
+  },
+  "relationChecks": {
+    "contractsWithoutClient": 0,
+    "vehiclesWithoutContract": 0,
+    "claimsWithoutClient": 0,
+    "claimsWithoutContract": 0,
+    "claimsWithoutVehicle": 0
+  },
+  "sourceRelationChecks": {
+    "missingContract": 0,
+    "missingVehicle": 0,
+    "missingClaimClient": 0,
+    "missingContractClient": 0,
+    "claimContractClientMismatch": 0,
+    "vehicleContractMismatch": 0
+  },
+  "lengthChecks": {
+    "Clients": {
+      "ClientId": {
+        "maximum": 12,
+        "sqlLimit": 20,
+        "valid": true
+      },
+      "Nom": {
+        "maximum": 12,
+        "sqlLimit": 100,
+        "valid": true
+      },
+      "Prenom": {
+        "maximum": 10,
+        "sqlLimit": 100,
+        "valid": true
+      },
+      "Gouvernorat": {
+        "maximum": 11,
+        "sqlLimit": 100,
+        "valid": true
+      }
+    },
+    "Contrats": {
+      "ContractId": {
+        "maximum": 12,
+        "sqlLimit": 20,
+        "valid": true
+      },
+      "ClientId": {
+        "maximum": 12,
+        "sqlLimit": 20,
+        "valid": true
+      },
+      "TypeCouverture": {
+        "maximum": 28,
+        "sqlLimit": 100,
+        "valid": true
+      }
+    },
+    "Vehicules": {
+      "VehicleId": {
+        "maximum": 12,
+        "sqlLimit": 20,
+        "valid": true
+      },
+      "ContractId": {
+        "maximum": 12,
+        "sqlLimit": 20,
+        "valid": true
+      },
+      "TypeVehicule": {
+        "maximum": 6,
+        "sqlLimit": 50,
+        "valid": true
+      },
+      "Marque": {
+        "maximum": 15,
+        "sqlLimit": 50,
+        "valid": true
+      },
+      "Modele": {
+        "maximum": 21,
+        "sqlLimit": 100,
+        "valid": true
+      },
+      "Immatriculation": {
+        "maximum": 10,
+        "sqlLimit": 30,
+        "valid": true
+      }
+    },
+    "Sinistres": {
+      "ClaimId": {
+        "maximum": 12,
+        "sqlLimit": 20,
+        "valid": true
+      },
+      "ContractId": {
+        "maximum": 12,
+        "sqlLimit": 20,
+        "valid": true
+      },
+      "ClientId": {
+        "maximum": 12,
+        "sqlLimit": 20,
+        "valid": true
+      },
+      "VehicleId": {
+        "maximum": 12,
+        "sqlLimit": 20,
+        "valid": true
+      },
+      "TypeSinistre": {
+        "maximum": 21,
+        "sqlLimit": 100,
+        "valid": true
+      },
+      "Statut": {
+        "maximum": 23,
+        "sqlLimit": 50,
+        "valid": true
+      }
+    }
+  },
+  "statusCounts": {
+    "Clos_avec_indemnisation": 1105,
+    "Ouvert": 996,
+    "En_cours_d_expertise": 848,
+    "Clos_sans_indemnisation": 303,
+    "Refusé": 208
+  },
+  "claimTypeCounts": {
+    "Accident": 1878,
+    "Responsabilité civile": 750,
+    "Bris de glace": 445,
+    "Catastrophe naturelle": 167,
+    "Vol": 153,
+    "Incendie": 67
+  },
+  "outputFiles": [
+    "clients.csv",
+    "contrats.csv",
+    "vehicules.csv",
+    "sinistres.csv",
+    "sinistres_exclus.csv"
+  ]
+}

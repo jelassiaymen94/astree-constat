@@ -21,3 +21,7 @@ appsettings.Local.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Local source and generated import data
+data/raw/
+data/processed/*.csv
