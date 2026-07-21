@@ -1,6 +1,34 @@
-@AstreeClaims.Api_HostAddress = http://localhost:5294
+@AstreeClaims_Api_HostAddress = http://localhost:5294
+@ClaimId = CLM-REMPLACER
 
-GET {{AstreeClaims.Api_HostAddress}}/weatherforecast/
+### SQL Server health
+GET {{AstreeClaims_Api_HostAddress}}/api/health/database
 Accept: application/json
 
-###
+### FastAPI health through .NET
+GET {{AstreeClaims_Api_HostAddress}}/api/health/ai
+Accept: application/json
+
+### Claims - first page
+GET {{AstreeClaims_Api_HostAddress}}/api/claims?page=1&pageSize=20
+Accept: application/json
+
+### Claims - status filter
+GET {{AstreeClaims_Api_HostAddress}}/api/claims?status=Ouvert&page=1&pageSize=20
+Accept: application/json
+
+### Claims - type filter
+GET {{AstreeClaims_Api_HostAddress}}/api/claims?type=Accident&page=1&pageSize=20
+Accept: application/json
+
+### Claims - identifier search
+GET {{AstreeClaims_Api_HostAddress}}/api/claims?search=CLM-&page=1&pageSize=20
+Accept: application/json
+
+### Claim details
+GET {{AstreeClaims_Api_HostAddress}}/api/claims/{{ClaimId}}
+Accept: application/json
+
+### Consolidated claim context
+GET {{AstreeClaims_Api_HostAddress}}/api/claims/{{ClaimId}}/context
+Accept: application/json

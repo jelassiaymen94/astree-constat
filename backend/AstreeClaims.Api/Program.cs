@@ -1,4 +1,7 @@
+using System.Text.Json;
 using AstreeClaims.Api.Data;
+using AstreeClaims.Api.Services.Claims;
+using AstreeClaims.Api.Services.Import;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,6 +15,9 @@ builder.Services.AddDbContext<AstreeClaimsDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddScoped<IDataImportService, DataImportService>();
+builder.Services.AddScoped<IClaimsService, ClaimsService>();
+
 var aiServiceBaseUrl =
     builder.Configuration["AiService:BaseUrl"]
     ?? "http://localhost:8000";
@@ -23,6 +29,34 @@ builder.Services.AddHttpClient("AiService", client =>
 });
 
 var app = builder.Build();
+
+// Import manuel et idempotent des fichiers préparés.
+if (args.Contains("--import-data", StringComparer.OrdinalIgnoreCase))
+{
+    var importDirectoryArgumentIndex = Array.FindIndex(
+        args,
+        argument => string.Equals(
+            argument,
+            "--import-dir",
+            StringComparison.OrdinalIgnoreCase));
+
+    var importDirectory =
+        importDirectoryArgumentIndex >= 0 &&
+        importDirectoryArgumentIndex + 1 < args.Length
+            ? args[importDirectoryArgumentIndex + 1]
+            : Path.GetFullPath(
+                Path.Combine(builder.Environment.ContentRootPath, "../../data/processed"));
+
+    using var scope = app.Services.CreateScope();
+    var importService = scope.ServiceProvider.GetRequiredService<IDataImportService>();
+    var importResult = await importService.ImportAsync(importDirectory);
+
+    Console.WriteLine(JsonSerializer.Serialize(
+        importResult,
+        new JsonSerializerOptions { WriteIndented = true }));
+
+    return;
+}
 
 // HTTP pipeline
 if (app.Environment.IsDevelopment())
