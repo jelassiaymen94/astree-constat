@@ -32,3 +32,23 @@ Accept: application/json
 ### Consolidated claim context
 GET {{AstreeClaims_Api_HostAddress}}/api/claims/{{ClaimId}}/context
 Accept: application/json
+
+### 4B - invalid page: expect 400 INVALID_REQUEST
+GET {{AstreeClaims_Api_HostAddress}}/api/claims?page=0
+Accept: application/json
+
+### 4B - invalid page size: expect 400 INVALID_REQUEST
+GET {{AstreeClaims_Api_HostAddress}}/api/claims?pageSize=101
+Accept: application/json
+
+### 4B - missing claim: expect 404 CLAIM_NOT_FOUND
+GET {{AstreeClaims_Api_HostAddress}}/api/claims/CLM-INEXISTANT
+Accept: application/json
+
+### 4B - missing context: expect 404 CLAIM_NOT_FOUND
+GET {{AstreeClaims_Api_HostAddress}}/api/claims/CLM-INEXISTANT/context
+Accept: application/json
+
+### 4B - database unavailable: stop SQL Server first, expect 503
+GET {{AstreeClaims_Api_HostAddress}}/api/claims?page=1&pageSize=5
+Accept: application/json

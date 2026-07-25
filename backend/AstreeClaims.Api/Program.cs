@@ -1,7 +1,12 @@
+using System.Diagnostics;
 using System.Text.Json;
 using AstreeClaims.Api.Data;
+using AstreeClaims.Api.DTOs.Common;
+using AstreeClaims.Api.ErrorHandling;
+using AstreeClaims.Api.Exceptions;
 using AstreeClaims.Api.Services.Claims;
 using AstreeClaims.Api.Services.Import;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,6 +15,33 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var errors = context.ModelState
+            .Where(entry => entry.Value?.Errors.Count > 0)
+            .ToDictionary(
+                entry => entry.Key,
+                entry => entry.Value!.Errors
+                    .Select(error => string.IsNullOrWhiteSpace(error.ErrorMessage)
+                        ? "Valeur invalide."
+                        : error.ErrorMessage)
+                    .ToArray());
+
+        var traceId = Activity.Current?.Id
+            ?? context.HttpContext.TraceIdentifier;
+
+        return new BadRequestObjectResult(new ApiErrorDto(
+            "INVALID_REQUEST",
+            "Un ou plusieurs paramètres sont invalides.",
+            traceId,
+            errors));
+    };
+});
 
 builder.Services.AddDbContext<AstreeClaimsDbContext>(options =>
     options.UseSqlServer(
@@ -59,13 +91,18 @@ if (args.Contains("--import-data", StringComparer.OrdinalIgnoreCase))
 }
 
 // HTTP pipeline
+app.UseExceptionHandler();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    app.UseHttpsRedirection();
+}
 app.UseAuthorization();
 
 app.MapControllers();
@@ -102,11 +139,12 @@ app.MapGet("/api/health/ai", async (
     }
     catch (Exception exception)
     {
-        return Results.Problem(
-            title: "AI service unavailable",
-            detail: exception.Message,
-            statusCode: 502);
+        throw new AiServiceUnavailableException(exception);
     }
 });
 
 app.Run();
+
+
+// Point d’entrée exposé aux tests d’intégration WebApplicationFactory.
+public partial class Program { }

@@ -1,5 +1,6 @@
 using AstreeClaims.Api.DTOs.Claims;
 using AstreeClaims.Api.DTOs.Common;
+using AstreeClaims.Api.Exceptions;
 using AstreeClaims.Api.Services.Claims;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,7 +19,8 @@ public sealed class ClaimsController : ControllerBase
 
     [HttpGet]
     [ProducesResponseType(typeof(PagedResultDto<ClaimDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status503ServiceUnavailable)]
     public async Task<ActionResult<PagedResultDto<ClaimDto>>> GetClaims(
         [FromQuery] ClaimListQueryDto query,
         CancellationToken cancellationToken)
@@ -29,7 +31,8 @@ public sealed class ClaimsController : ControllerBase
 
     [HttpGet("{claimId}")]
     [ProducesResponseType(typeof(ClaimDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status503ServiceUnavailable)]
     public async Task<ActionResult<ClaimDto>> GetClaim(
         string claimId,
         CancellationToken cancellationToken)
@@ -39,21 +42,15 @@ public sealed class ClaimsController : ControllerBase
             normalizedClaimId,
             cancellationToken);
 
-        if (claim is null)
-        {
-            return NotFound(new
-            {
-                code = "CLAIM_NOT_FOUND",
-                message = $"Le sinistre {normalizedClaimId} est introuvable."
-            });
-        }
-
-        return Ok(claim);
+        return claim is null
+            ? throw new ClaimNotFoundException(normalizedClaimId)
+            : Ok(claim);
     }
 
     [HttpGet("{claimId}/context")]
     [ProducesResponseType(typeof(ClaimContextDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status503ServiceUnavailable)]
     public async Task<ActionResult<ClaimContextDto>> GetClaimContext(
         string claimId,
         CancellationToken cancellationToken)
@@ -63,15 +60,8 @@ public sealed class ClaimsController : ControllerBase
             normalizedClaimId,
             cancellationToken);
 
-        if (context is null)
-        {
-            return NotFound(new
-            {
-                code = "CLAIM_NOT_FOUND",
-                message = $"Le sinistre {normalizedClaimId} est introuvable."
-            });
-        }
-
-        return Ok(context);
+        return context is null
+            ? throw new ClaimNotFoundException(normalizedClaimId)
+            : Ok(context);
     }
 }

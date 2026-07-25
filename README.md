@@ -1,204 +1,170 @@
 # ASTREE Claims AI
 
-Prototype d’assistant rédactionnel basé sur l’IA générative pour la gestion des sinistres automobiles.
+Prototype d’assistant rédactionnel pour la gestion des sinistres automobiles. Le backend centralise les dossiers et prépare un contexte structuré pour de futures synthèses, courriers et réponses assistées par LLM. Toute génération future restera soumise à une validation humaine.
 
-Le projet vise à produire, à partir des données d’un dossier, des **synthèses**, des **courriers de statut** et des **réponses contextualisées** destinées à assister les gestionnaires. Chaque contenu généré reste soumis à une validation humaine avant utilisation.
+## État du projet
 
-## Objectifs
+### Implémenté et validé
 
-- Réduire le temps consacré à la rédaction.
-- Standardiser les communications adressées aux assurés.
-- Améliorer la cohérence et la qualité rédactionnelle.
-- Centraliser le contexte utile d’un dossier sinistre.
-- Conserver une trace des générations effectuées.
+- sélection du fichier synthétique `donnees_assurance_tunisie2.xlsx` ;
+- 5 252 sinistres analysés, 1 792 exclus et 3 460 retenus ;
+- extraction reproductible vers des CSV UTF-8 ;
+- SQL Server 2022 dans Docker et schéma Database First ;
+- import .NET transactionnel et idempotent ;
+- 2 048 clients, 2 179 contrats, 2 179 véhicules et 3 460 sinistres importés ;
+- contrôles SQL des relations, doublons et périodes contractuelles ;
+- endpoints de santé SQL Server et FastAPI ;
+- endpoints paginés de consultation et contexte consolidé ;
+- format uniforme des erreurs ;
+- validation HTTP `400` avec `INVALID_REQUEST` ;
+- erreur HTTP `404` avec `CLAIM_NOT_FOUND` ;
+- indisponibilité FastAPI HTTP `502` avec `AI_SERVICE_UNAVAILABLE` ;
+- indisponibilité SQL HTTP `503` avec `DATABASE_UNAVAILABLE` ;
+- erreur inattendue HTTP `500` avec `INTERNAL_ERROR` ;
+- journalisation corrélée par `traceId`.
 
-## Cas d’usage de la V1
+### Étape 5A — implémentée et validée
 
-1. **Synthèse de dossier** : assuré, contrat, véhicule, circonstances, montants et statut.
-2. **Courrier de statut** : réception, expertise, clôture, indemnisation ou refus.
-3. **Réponse contextualisée** : réponse à une question saisie par le gestionnaire, fondée sur les données disponibles.
+- projet xUnit séparé avec SQLite en mémoire ;
+- 18 cas automatisés couvrant services Claims, API et import ;
+- exécution indépendante de Docker et de la base de développement.
+
+### Prévu plus tard
+
+- intégration réelle du LLM en S4 ;
+- templates de génération et `GenerationLogs` ;
+- validation humaine des contenus générés.
 
 ## Architecture
 
 ```text
-Swagger / interface de démonstration
-                │
-                ▼
-      ASP.NET Core Web API
-         │              │
-         ▼              ▼
-    SQL Server     FastAPI / Python
-                        │
-                        ▼
-                       LLM
+Swagger / client HTTP
+        │
+        ▼
+ClaimsController
+        │
+        ▼
+IClaimsService / ClaimsService
+        │
+        ▼
+Entity Framework Core 8
+        │
+        ▼
+SQL Server 2022
+
+ASP.NET Core ──HTTP/JSON──> FastAPI ──> futur LLM
 ```
 
-- **ASP.NET Core (.NET 8)** : accès aux données, règles métier, orchestration et journalisation.
-- **SQL Server** : clients, contrats, véhicules, sinistres et historique des générations.
-- **FastAPI** : construction des prompts, appel du LLM et validation des réponses.
-
-## Technologies
-
-- .NET 8 et ASP.NET Core Web API
-- Entity Framework Core 8
-- Python et FastAPI
-- SQL Server 2022
-- Docker Compose
-- Swagger / OpenAPI
-- Git
-
-## Structure du repository
+## Structure principale
 
 ```text
-astree-claims-ai/
-├── backend/
-│   └── AstreeClaims.Api/
-├── ai-service/
-│   ├── app/
-│   └── requirements.txt
-├── database/
-│   └── schema.sql
-├── docs/
-│   ├── architecture.md
-│   ├── api-contracts.md
-│   ├── installation.md
-│   └── journal-2026-07-20.md
-├── .config/
-│   └── dotnet-tools.json
-├── .env.example
-├── .gitignore
-├── AstreeClaims.sln
-├── docker-compose.yml
-└── README.md
+backend/AstreeClaims.Api/
+├── Controllers/
+├── Data/
+├── DTOs/
+├── ErrorHandling/
+├── Exceptions/
+├── Models/
+├── Services/
+└── Program.cs
+tests/AstreeClaims.Api.Tests/
+ai-service/
+database/
+data/
+docs/
+scripts/
 ```
-
-## Données retenues
-
-Le prototype utilise un jeu de données synthétique d’assurance automobile tunisienne.
-
-Après contrôle :
-
-- 5 252 sinistres analysés ;
-- 1 792 sinistres exclus pour incohérence temporelle ;
-- 3 460 sinistres valides retenus ;
-- aucune relation cassée entre les clients, contrats, véhicules et sinistres retenus.
-
-Les différents jeux de données fournis ne sont pas fusionnés, car leurs identifiants et leurs structures ne sont pas compatibles.
 
 ## Démarrage rapide
 
-### Prérequis
-
-- Docker Desktop
-- SQL Server Management Studio
-- .NET 8 SDK
-- Python 3
-- Git
-
-### 1. Démarrer SQL Server
+### 1. SQL Server
 
 ```bash
-docker compose up -d
-docker compose ps
+docker compose up -d sqlserver
+docker compose logs --tail=100 sqlserver
 ```
 
-Exécuter ensuite `database/schema.sql` dans SQL Server Management Studio.
+Attendre `SQL Server is now ready for client connections`.
 
-### 2. Restaurer .NET
+### 2. Préparer les données
 
 ```bash
-dotnet tool restore
-dotnet restore
+python -m venv .data-venv
+source .data-venv/Scripts/activate
+python -m pip install -r scripts/requirements-data.txt
+python scripts/prepare_import_data.py --input data/raw/donnees_assurance_tunisie2.xlsx --output-dir data/processed
 ```
 
-Configurer localement la connexion avec `dotnet user-secrets` ; aucun mot de passe ne doit être ajouté au repository.
+Résultat attendu : 2 048 clients, 2 179 contrats, 2 179 véhicules, 3 460 sinistres et 1 792 exclusions.
 
-### 3. Démarrer FastAPI
+### 3. Configurer .NET
 
-Dans Git Bash sous Windows :
+Depuis `backend/AstreeClaims.Api` :
 
 ```bash
-cd ai-service
-source .venv/Scripts/activate
-uvicorn app.main:app --reload --port 8000
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" 'Server=127.0.0.1,1433;Database=AstreeClaimsDb;User Id=sa;Password=<MOT_DE_PASSE>;TrustServerCertificate=True'
+dotnet user-secrets set "AiService:BaseUrl" "http://localhost:8000"
 ```
 
-Documentation interactive : `http://localhost:8000/docs`.
-
-### 4. Démarrer l’API .NET
-
-Dans un deuxième terminal :
+### 4. Importer
 
 ```bash
-cd backend/AstreeClaims.Api
+dotnet run -- --import-data --import-dir ../../data/processed
+```
+
+Relancer la commande : la deuxième exécution doit insérer zéro ligne.
+
+### 5. Lancer l’API
+
+```bash
+dotnet build
 dotnet run
 ```
 
-Ouvrir ensuite l’URL Swagger affichée dans le terminal.
+## Tests automatisés
 
-## Vérifications disponibles
+La suite n’utilise pas la base de développement :
 
-### SQL Server
+```bash
+dotnet test AstreeClaims.sln
+```
+
+Couverture optionnelle :
+
+```bash
+dotnet test AstreeClaims.sln --collect:"XPlat Code Coverage"
+```
+
+## Endpoints disponibles
 
 ```http
 GET /api/health/database
-```
-
-Résultat attendu :
-
-```json
-{
-  "database": "AstreeClaimsDb",
-  "connected": true
-}
-```
-
-### FastAPI
-
-```http
-GET http://localhost:8000/health
-```
-
-### Communication .NET vers FastAPI
-
-```http
 GET /api/health/ai
+GET /api/claims?page=1&pageSize=20
+GET /api/claims/{claimId}
+GET /api/claims/{claimId}/context
 ```
 
-La réponse doit contenir `"connected": true`.
+Filtres de la liste : `status`, `type` et `search`.
 
 ## Sécurité
 
-- `.env` et les secrets locaux sont exclus de Git.
-- Les clés LLM seront fournies par variables d’environnement.
-- Les mots de passe ne sont jamais écrits dans la documentation.
-- Les données actuelles sont synthétiques.
-- Toute production de l’IA doit être validée par un gestionnaire.
+- `.env`, les données brutes et les CSV générés restent locaux ;
+- les secrets .NET utilisent `dotnet user-secrets` ;
+- aucun secret ne doit être journalisé ou commité ;
+- les réponses d’erreur publiques ne contiennent ni stack trace ni détail SQL ;
+- les données utilisées sont synthétiques.
 
-## Périmètre exclu de la V1
+## Documentation
 
-- RAG et base vectorielle
-- Analyse de documents PDF
-- Fine-tuning
-- Envoi automatique de courriers
-- Décision automatique d’indemnisation
-- Interface frontend complète
-
-## État du projet
-
-- [x] Analyse et sélection des données
-- [x] Architecture technique
-- [x] Schéma SQL Server
-- [x] API ASP.NET Core initialisée
-- [x] Entity Framework Core connecté
-- [x] FastAPI initialisé
-- [x] Communication .NET vers FastAPI validée
-- [ ] Importation des 3 460 dossiers valides
-- [ ] Endpoints métier
-- [ ] Intégration du LLM
-- [ ] Templates de génération
-- [ ] Tests de qualité
+- `docs/architecture.md`
+- `docs/api-contracts.md`
+- `docs/installation.md`
+- `docs/data-dictionary.md`
+- `docs/import-process.md`
+- `docs/testing.md`
+- `docs/journal-S3.md`
 
 ## Auteur
 
-**Aymen Jelassi** — Stage ASTREE ASSURANCES
+Aymen Jelassi — stage ASTREE ASSURANCES

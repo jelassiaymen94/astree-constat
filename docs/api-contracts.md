@@ -1,30 +1,40 @@
 # Contrats d’API
 
-## 1. Conventions
+## Conventions
 
-- Format : JSON
-- Encodage : UTF-8
-- Dates : ISO 8601 (`YYYY-MM-DD`)
-- Montants : nombres décimaux
-- API métier : ASP.NET Core
-- API interne de génération : FastAPI
+- JSON UTF-8 ;
+- dates ISO 8601 `YYYY-MM-DD` ;
+- montants JSON numériques ;
+- propriétés JSON en camelCase ;
+- pagination à partir de 1 ;
+- taille maximale d’une page : 100.
 
-## 2. Endpoints ASP.NET Core
+## Endpoints implémentés
 
 ### Lister les sinistres
 
 ```http
-GET /api/claims?status=Ouvert&type=Accident&page=1&pageSize=20
+GET /api/claims?page=1&pageSize=20&status=Ouvert&type=Accident&search=CLM-
 ```
 
-Réponse prévue :
+Tous les paramètres sont facultatifs. `status` et `type` utilisent une égalité exacte ; `search` recherche une partie de `ClaimId`.
 
 ```json
 {
-  "items": [],
+  "items": [
+    {
+      "claimId": "CLM-001",
+      "date": "2025-04-10",
+      "type": "Accident",
+      "description": "Accrochage léger",
+      "estimatedAmount": 2500.00,
+      "compensationAmount": 1500.00,
+      "status": "Ouvert"
+    }
+  ],
   "page": 1,
   "pageSize": 20,
-  "total": 0
+  "total": 3460
 }
 ```
 
@@ -33,6 +43,8 @@ Réponse prévue :
 ```http
 GET /api/claims/{claimId}
 ```
+
+Retourne un `ClaimDto` ou HTTP `404`.
 
 ### Charger le contexte consolidé
 
@@ -49,7 +61,7 @@ GET /api/claims/{claimId}/context
     "description": "Accrochage léger",
     "estimatedAmount": 2500.00,
     "compensationAmount": 1500.00,
-    "status": "En_cours_d_expertise"
+    "status": "Ouvert"
   },
   "customer": {
     "clientId": "CLI-001",
@@ -73,126 +85,63 @@ GET /api/claims/{claimId}/context
 }
 ```
 
-### Générer un contenu
-
-```http
-POST /api/claims/{claimId}/generate
-```
-
-```json
-{
-  "generationType": "summary",
-  "tone": "professional",
-  "detailLevel": "standard",
-  "userInstruction": null
-}
-```
-
-Valeurs de `generationType` :
-
-- `summary`
-- `status_letter`
-- `response`
-
-Réponse prévue :
-
-```json
-{
-  "generationId": "c081ba41-f7d5-4bb3-9e35-d8087238c256",
-  "claimId": "CLM-001",
-  "generationType": "summary",
-  "content": "Texte généré...",
-  "warnings": [],
-  "model": "configured-model",
-  "promptVersion": "1.0",
-  "durationMs": 1430
-}
-```
-
-### Charger l’historique
-
-```http
-GET /api/claims/{claimId}/generations
-```
-
-## 3. Endpoint FastAPI interne
-
-```http
-POST /api/v1/generate
-```
-
-Requête :
-
-```json
-{
-  "generationType": "response",
-  "tone": "professional",
-  "detailLevel": "standard",
-  "userInstruction": "L’assuré demande pourquoi le dossier est encore en expertise.",
-  "claimContext": {
-    "claim": {},
-    "customer": {},
-    "contract": {},
-    "vehicle": {}
-  }
-}
-```
-
-Réponse :
-
-```json
-{
-  "content": "Madame, Monsieur...",
-  "warnings": [],
-  "model": "configured-model",
-  "promptVersion": "1.0",
-  "tokensUsed": 620
-}
-```
-
-## 4. Endpoints de santé déjà validés
-
-### Base de données
+### Santé SQL Server
 
 ```http
 GET /api/health/database
 ```
 
-```json
-{
-  "database": "AstreeClaimsDb",
-  "connected": true
-}
-```
-
-### FastAPI
-
-```http
-GET http://localhost:8000/health
-```
-
-```json
-{
-  "service": "astree-ai-service",
-  "status": "healthy"
-}
-```
-
-### Communication .NET vers FastAPI
+### Santé FastAPI via .NET
 
 ```http
 GET /api/health/ai
 ```
 
-La réponse doit contenir un statut HTTP `200` et `connected: true`.
+## Format uniforme des erreurs — S3 4B
 
-## 5. Codes d’erreur prévus
+```json
+{
+  "code": "CLAIM_NOT_FOUND",
+  "message": "Le sinistre CLM-INEXISTANT est introuvable.",
+  "traceId": "00-...",
+  "errors": null
+}
+```
+
+### Paramètres invalides
+
+HTTP `400`, code `INVALID_REQUEST`. `errors` contient les champs invalides.
+
+### Sinistre introuvable
+
+HTTP `404`, code `CLAIM_NOT_FOUND`.
+
+### SQL Server indisponible
+
+HTTP `503`, code `DATABASE_UNAVAILABLE`. Aucun détail SQL n’est exposé.
+
+### Service IA indisponible
+
+HTTP `502`, code `AI_SERVICE_UNAVAILABLE`. L’exception réseau réelle reste dans les logs serveur.
+
+### Erreur inattendue
+
+HTTP `500`, code `INTERNAL_ERROR`. La stack trace reste uniquement dans les logs serveur.
 
 | HTTP | Code | Utilisation |
 |---:|---|---|
-| 400 | `INVALID_REQUEST` | Paramètres invalides |
+| 400 | `INVALID_REQUEST` | Paramètre ou modèle invalide |
 | 404 | `CLAIM_NOT_FOUND` | Sinistre introuvable |
-| 422 | `INCOMPLETE_CONTEXT` | Contexte insuffisant |
-| 502 | `LLM_UNAVAILABLE` | Service IA indisponible |
-| 504 | `LLM_TIMEOUT` | Délai d’attente dépassé |
+| 502 | `AI_SERVICE_UNAVAILABLE` | FastAPI inaccessible |
+| 503 | `DATABASE_UNAVAILABLE` | SQL Server inaccessible |
 | 500 | `INTERNAL_ERROR` | Erreur interne non prévue |
+
+## Endpoints prévus pour S4 — non implémentés
+
+```http
+POST /api/claims/{claimId}/generate
+GET /api/claims/{claimId}/generations
+POST /api/v1/generate
+```
+
+Ils concerneront le LLM, les templates et l’historique des générations. Ils ne doivent pas être présentés comme disponibles en S3.

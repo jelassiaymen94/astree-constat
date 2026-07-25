@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -6,6 +6,8 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "backend", "backend", "{A5A4669D-CC53-4688-9A5E-3214C14B3799}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AstreeClaims.Api", "backend\AstreeClaims.Api\AstreeClaims.Api.csproj", "{871E298B-A40B-46ED-B046-D23745294745}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AstreeClaims.Api.Tests", "tests\AstreeClaims.Api.Tests\AstreeClaims.Api.Tests.csproj", "{B4A48F8C-21B9-4A98-83F1-8FEAB72997AF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -20,6 +22,10 @@ Global
 		{871E298B-A40B-46ED-B046-D23745294745}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{871E298B-A40B-46ED-B046-D23745294745}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{871E298B-A40B-46ED-B046-D23745294745}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B4A48F8C-21B9-4A98-83F1-8FEAB72997AF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B4A48F8C-21B9-4A98-83F1-8FEAB72997AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B4A48F8C-21B9-4A98-83F1-8FEAB72997AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B4A48F8C-21B9-4A98-83F1-8FEAB72997AF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{871E298B-A40B-46ED-B046-D23745294745} = {A5A4669D-CC53-4688-9A5E-3214C14B3799}

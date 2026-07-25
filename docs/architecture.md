@@ -1,118 +1,144 @@
 # Architecture technique
 
-## 1. Objectif
+## Objectif
 
-L’architecture doit permettre de générer des contenus métier à partir d’un dossier sinistre tout en séparant clairement :
+La V1 sépare les données et règles métier .NET de la future génération LLM dans FastAPI. La solution reste simple, démontrable et adaptée à un stage de six semaines.
 
-- la gestion des données et des règles métier ;
-- la génération par IA ;
-- le stockage et l’audit des résultats.
-
-La V1 privilégie une solution simple, démontrable et compatible avec la durée du stage.
-
-## 2. Vue d’ensemble
+## Vue opérationnelle
 
 ```text
-┌──────────────────────────────┐
-│ Swagger / interface de démo │
-└──────────────┬───────────────┘
-               │ HTTP
-               ▼
-┌──────────────────────────────┐
-│ ASP.NET Core Web API (.NET 8)│
-│ - dossiers et règles métier │
-│ - contexte consolidé        │
-│ - orchestration             │
-│ - journalisation            │
-└───────────┬──────────┬───────┘
-            │          │ HTTP/JSON
-            ▼          ▼
-┌───────────────┐  ┌──────────────────┐
-│  SQL Server   │  │ FastAPI / Python │
-│ données + logs│  │ prompts + LLM    │
-└───────────────┘  └────────┬─────────┘
-                            ▼
-                           LLM
+Swagger / client HTTP
+        │
+        ▼
+ASP.NET Core Web API (.NET 8)
+├── ClaimsController
+├── DTOs
+├── ClaimsService
+├── gestion globale des erreurs
+├── importeur de données
+└── Entity Framework Core 8
+        │
+        ▼
+SQL Server 2022 / AstreeClaimsDb
+
+ASP.NET Core ──HTTP/JSON──> FastAPI
+                                  └── futur LLM en S4
 ```
 
-## 3. Flux principal
+## Backend métier
 
-1. Le gestionnaire sélectionne un sinistre et un type de génération.
-2. L’API .NET charge le client, le contrat, le véhicule et le sinistre.
-3. Elle valide le dossier et construit un contexte JSON consolidé.
-4. Elle appelle le service FastAPI.
-5. FastAPI sélectionne le template et construit le prompt.
-6. Le LLM produit une proposition de texte.
-7. L’API .NET journalise la demande et le résultat.
-8. Le gestionnaire vérifie le contenu avant utilisation.
+### Contrôleur
 
-## 4. Responsabilités
+`ClaimsController` expose :
 
-### ASP.NET Core Web API
+```http
+GET /api/claims
+GET /api/claims/{claimId}
+GET /api/claims/{claimId}/context
+```
 
-- Exposer les endpoints métier.
-- Accéder à SQL Server avec Entity Framework Core.
-- Appliquer les validations métier.
-- Construire le contexte d’un dossier.
-- Appeler FastAPI avec `HttpClient`.
-- Gérer les erreurs et délais d’attente.
-- Enregistrer les générations dans `GenerationLogs`.
+Il ne retourne jamais directement les entités Entity Framework.
 
-### FastAPI
+### DTOs
 
-- Recevoir un contexte structuré.
-- Sélectionner le template selon le cas d’usage.
-- Construire le prompt système et le prompt utilisateur.
-- Appeler un fournisseur LLM configurable.
-- Retourner le contenu, le modèle, la version du prompt et les avertissements.
+- `ClaimDto`
+- `CustomerDto`
+- `ContractDto`
+- `VehicleDto`
+- `ClaimContextDto`
+- `ClaimListQueryDto`
+- `PagedResultDto<T>`
+- `ApiErrorDto`
 
-FastAPI n’accède pas directement à SQL Server dans la V1.
+### Service
 
-### SQL Server
+`IClaimsService` et `ClaimsService` centralisent :
 
-| Table | Rôle |
-|---|---|
-| `Clients` | Identité minimale de l’assuré |
-| `Contrats` | Couverture et période contractuelle |
-| `Vehicules` | Informations du véhicule assuré |
-| `Sinistres` | Circonstances, montants et statut |
-| `GenerationLogs` | Historique et audit des générations |
+- pagination ;
+- filtres ;
+- recherche par identifiant ;
+- projections EF vers les DTOs ;
+- contexte consolidé.
 
-## 5. Règles de conception
+Les lectures utilisent `AsNoTracking()` et un tri stable par date décroissante puis identifiant.
 
-- La date du sinistre doit appartenir à la période du contrat.
-- Les montants doivent être positifs ou nuls.
-- Le LLM ne décide jamais de l’indemnisation.
-- Une information absente ne doit pas être inventée.
-- Chaque génération doit être associée à un sinistre.
-- Toute sortie doit être validée par un gestionnaire.
+## Gestion des erreurs — 4B
 
-## 6. Stratégie LLM
+`GlobalExceptionHandler` utilise `IExceptionHandler` de .NET 8.
 
-Le fournisseur LLM est encapsulé afin de pouvoir utiliser une API compatible OpenAI, Azure OpenAI ou un modèle local sans modifier la logique métier.
+```text
+ClaimNotFoundException       → 404 CLAIM_NOT_FOUND
+AiServiceUnavailableException → 502 AI_SERVICE_UNAVAILABLE
+DbException                   → 503 DATABASE_UNAVAILABLE
+Exception                     → 500 INTERNAL_ERROR
+Validation ASP.NET     → 400 INVALID_REQUEST
+```
 
-Paramètres initiaux :
+Chaque réponse contient un `traceId`. Les erreurs serveur sont journalisées sans exposer de stack trace, secret ou chaîne de connexion dans la réponse HTTP.
 
-- langue : français ;
-- température recommandée : `0.2` ;
-- version de prompt journalisée ;
-- délai d’attente contrôlé ;
-- réponse structurée avec avertissements.
+## Import S3
 
-## 7. Sécurité
+`DataImportService` lit les CSV préparés et valide :
 
-- Secrets stockés dans `.env` ou `dotnet user-secrets`.
-- `.env` exclu de Git.
-- Aucun mot de passe dans le code ou la documentation.
-- Journalisation sans clé API.
-- Données synthétiques pendant le prototypage.
-- Réévaluation obligatoire avant utilisation de données réelles.
+- en-têtes ;
+- valeurs obligatoires ;
+- dates et montants ;
+- unicité des identifiants ;
+- relations ;
+- cohérence temporelle.
 
-## 8. Hors périmètre V1
+L’ordre d’insertion est : clients, contrats, véhicules, sinistres. Une transaction couvre l’ensemble. Les identifiants existants sont ignorés pour assurer l’idempotence.
 
-- RAG et base vectorielle
-- Analyse automatique de PDF
-- Fine-tuning
-- Envoi de courriers sans validation
-- Décision automatique d’indemnisation
-- Frontend complet
+L’import est déclenché manuellement :
+
+```bash
+dotnet run -- --import-data --import-dir ../../data/processed
+```
+
+## Architecture des tests — 5A
+
+Le projet `tests/AstreeClaims.Api.Tests` référence l’API sans modifier son stockage de production.
+
+```text
+xUnit
+├── ClaimsServiceTests ──> DbContext SQLite en mémoire
+├── ClaimsApiTests ──────> WebApplicationFactory<Program>
+└── DataImportServiceTests ──> CSV temporaires + transaction SQLite
+```
+
+`ClaimsApiFactory` remplace l’enregistrement SQL Server par une connexion SQLite en mémoire ouverte pendant la durée des tests. Un petit jeu cohérent de clients, contrats, véhicules et sinistres est créé avec `EnsureCreated`. L’environnement `Testing` désactive uniquement la redirection HTTPS afin que le client d’intégration appelle directement l’application en mémoire.
+
+Cette séparation garantit des tests rapides, reproductibles et indépendants de Docker et de la base `AstreeClaimsDb`.
+
+## SQL Server
+
+Tables :
+
+- `Clients`
+- `Contrats`
+- `Vehicules`
+- `Sinistres`
+- `GenerationLogs`
+
+`GenerationLogs` est préparée mais sera utilisée avec l’intégration LLM en S4.
+
+## FastAPI
+
+FastAPI expose actuellement `/health`. Il n’accède pas directement à SQL Server. L’appel réel au LLM est hors périmètre S3.
+
+## Sécurité
+
+- secrets SQL dans `.env` pour Docker et `dotnet user-secrets` pour .NET ;
+- aucune clé dans Git ;
+- données synthétiques ;
+- journalisation sans secret ;
+- validation humaine obligatoire pour toute future génération.
+
+## Hors périmètre S3
+
+- RAG ;
+- analyse PDF ;
+- fine-tuning ;
+- frontend complet ;
+- envoi automatique ;
+- décision automatique d’indemnisation.
