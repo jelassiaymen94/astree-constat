@@ -65,7 +65,7 @@ def test_groq_provider_returns_normalized_result():
     result = asyncio.run(provider.generate(make_request()))
     assert result.content == "Brouillon Groq à valider."
     assert result.model_name == "llama-3.3-70b-versatile"
-    assert result.prompt_version == "2.0"
+    assert result.prompt_version == "2.1"
     assert result.duration_ms >= 1
     assert completions.arguments["temperature"] == 0.2
     assert completions.arguments["max_completion_tokens"] == 1000
@@ -94,7 +94,10 @@ def test_prompt_separates_rules_context_and_user_instruction():
     messages = build_messages(make_request())
     assert messages[0]["role"] == "system"
     assert "aucune décision d'indemnisation" in messages[0]["content"]
+    assert "dinars tunisiens (TND)" in messages[0]["content"]
+    assert "ne change jamais la devise" in messages[0]["content"]
     assert messages[1]["role"] == "user"
     assert "<context_json>" in messages[1]["content"]
     assert "<instruction_utilisateur>" in messages[1]["content"]
+    assert "estimatedAmount et compensationAmount sont en TND" in messages[1]["content"]
     assert "CLM-1" in messages[1]["content"]

@@ -25,7 +25,8 @@ Prototype d’assistant rédactionnel pour la gestion des sinistres automobiles.
 
 - fournisseur sélectionnable avec `LLM_PROVIDER=deterministic|groq` ;
 - intégration asynchrone avec le SDK officiel `groq` ;
-- prompts métier centralisés et versionnés `2.0` ;
+- prompts métier centralisés et versionnés `2.1` ;
+- devise TND imposée explicitement, sans conversion ;
 - erreurs Groq assainies : authentification, limite, capacité, timeout et indisponibilité ;
 - mode déterministe conservé pour les tests reproductibles ;
 - 14 tests Python ajoutés sans appel réseau ni clé réelle ;
