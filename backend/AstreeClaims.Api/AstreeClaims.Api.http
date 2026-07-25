@@ -3,52 +3,24 @@
 
 ### SQL Server health
 GET {{AstreeClaims_Api_HostAddress}}/api/health/database
-Accept: application/json
 
-### FastAPI health through .NET
+### FastAPI health
 GET {{AstreeClaims_Api_HostAddress}}/api/health/ai
-Accept: application/json
 
-### Claims - first page
+### Claims
 GET {{AstreeClaims_Api_HostAddress}}/api/claims?page=1&pageSize=20
-Accept: application/json
 
-### Claims - status filter
-GET {{AstreeClaims_Api_HostAddress}}/api/claims?status=Ouvert&page=1&pageSize=20
-Accept: application/json
-
-### Claims - type filter
-GET {{AstreeClaims_Api_HostAddress}}/api/claims?type=Accident&page=1&pageSize=20
-Accept: application/json
-
-### Claims - identifier search
-GET {{AstreeClaims_Api_HostAddress}}/api/claims?search=CLM-&page=1&pageSize=20
-Accept: application/json
-
-### Claim details
-GET {{AstreeClaims_Api_HostAddress}}/api/claims/{{ClaimId}}
-Accept: application/json
-
-### Consolidated claim context
+### Claim context
 GET {{AstreeClaims_Api_HostAddress}}/api/claims/{{ClaimId}}/context
-Accept: application/json
 
-### 4B - invalid page: expect 400 INVALID_REQUEST
-GET {{AstreeClaims_Api_HostAddress}}/api/claims?page=0
-Accept: application/json
+### S4A - generate a summary draft
+POST {{AstreeClaims_Api_HostAddress}}/api/claims/{{ClaimId}}/generate
+Content-Type: application/json
 
-### 4B - invalid page size: expect 400 INVALID_REQUEST
-GET {{AstreeClaims_Api_HostAddress}}/api/claims?pageSize=101
-Accept: application/json
+{
+  "generationType": "summary",
+  "userInstruction": "Rester factuel et concis."
+}
 
-### 4B - missing claim: expect 404 CLAIM_NOT_FOUND
-GET {{AstreeClaims_Api_HostAddress}}/api/claims/CLM-INEXISTANT
-Accept: application/json
-
-### 4B - missing context: expect 404 CLAIM_NOT_FOUND
-GET {{AstreeClaims_Api_HostAddress}}/api/claims/CLM-INEXISTANT/context
-Accept: application/json
-
-### 4B - database unavailable: stop SQL Server first, expect 503
-GET {{AstreeClaims_Api_HostAddress}}/api/claims?page=1&pageSize=5
-Accept: application/json
+### S4A - generation history
+GET {{AstreeClaims_Api_HostAddress}}/api/claims/{{ClaimId}}/generations
