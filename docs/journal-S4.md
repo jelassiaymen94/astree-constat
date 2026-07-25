@@ -32,15 +32,29 @@ Les erreurs d’authentification, de limite, de capacité, de timeout et d’ind
 
 Quatorze tests Python couvrent le contrat FastAPI, les trois types de génération, le fournisseur Groq simulé, les erreurs assainies, la réponse vide, la convention TND et la séparation entre règles, contexte et instruction utilisateur. Aucun test ne réalise d’appel Groq réel.
 
-## Validation manuelle
+## Validation manuelle finale
 
-Une première génération Groq complète a réussi pour `CLM-3972B1FD` avec persistance dans `GenerationLogs`, modèle `llama-3.3-70b-versatile`, durée `663 ms`, succès et validation humaine. Elle a toutefois révélé une devise euro inventée alors que les montants du projet sont en TND. Le prompt a donc été corrigé et versionné `2.1`; une nouvelle génération doit confirmer la devise TND avant validation finale.
+Une première génération Groq complète pour `CLM-3972B1FD` avait révélé une devise euro inventée. Le prompt a été corrigé et versionné `2.1`.
 
-## Validation attendue
+La validation finale du 25 juillet 2026 confirme :
+
+- 14 tests Python réussis en `0,73 s` ;
+- 23 tests .NET réussis dans GitHub Actions ;
+- génération complète `.NET → FastAPI → Groq → GenerationLogs` ;
+- `generationId` : `8344e840-1dda-43cf-97f8-5e08373f8e16` ;
+- modèle : `llama-3.3-70b-versatile` ;
+- prompt : `2.1` ;
+- durée : `894 ms` ;
+- montants correctement exprimés en TND ;
+- `success=true` et `errorMessage=null` ;
+- `requiresHumanValidation=true` ;
+- aucune décision ni aucun envoi automatique.
+
+S4B est donc implémentée et validée localement. Aucun secret ne doit être commité.
+
+## Commandes de régression
 
 ```bash
 dotnet test AstreeClaims.sln
 cd ai-service && python -m pytest -q
 ```
-
-La validation finale S4B requiert une nouvelle génération manuelle avec le prompt `2.1`, puis un contrôle de `GenerationLogs`. Aucun secret ne doit être commité.

@@ -21,7 +21,7 @@ Prototype d’assistant rédactionnel pour la gestion des sinistres automobiles.
 - 23 tests .NET réussis ;
 - `requiresHumanValidation: true` sur toutes les sorties publiques.
 
-### S4B — fournisseur Groq implémenté
+### S4B — fournisseur Groq implémenté et validé localement
 
 - fournisseur sélectionnable avec `LLM_PROVIDER=deterministic|groq` ;
 - intégration asynchrone avec le SDK officiel `groq` ;
@@ -29,10 +29,10 @@ Prototype d’assistant rédactionnel pour la gestion des sinistres automobiles.
 - devise TND imposée explicitement, sans conversion ;
 - erreurs Groq assainies : authentification, limite, capacité, timeout et indisponibilité ;
 - mode déterministe conservé pour les tests reproductibles ;
-- 14 tests Python ajoutés sans appel réseau ni clé réelle ;
-- contrats JSON FastAPI/.NET inchangés.
-
-La validation manuelle avec une vraie clé Groq reste obligatoire avant de déclarer S4B validée en environnement local.
+- 14 tests Python réussis sans appel réseau ni clé réelle ;
+- contrats JSON FastAPI/.NET inchangés ;
+- flux `.NET → FastAPI → Groq → GenerationLogs` validé avec le modèle `llama-3.3-70b-versatile` ;
+- persistance, prompt `2.1`, TND et validation humaine confirmés.
 
 ## Architecture
 
