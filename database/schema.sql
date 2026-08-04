@@ -69,7 +69,7 @@ CREATE TABLE GenerationLogs (
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     DurationMs INT NULL,
     CONSTRAINT FK_GenerationLogs_Sinistres FOREIGN KEY (ClaimId) REFERENCES Sinistres(ClaimId),
-    CONSTRAINT CK_GenerationLogs_Type CHECK (GenerationType IN ('summary', 'status_letter', 'response')),
+    CONSTRAINT CK_GenerationLogs_Type CHECK (GenerationType IN ('summary', 'letter', 'response')),
     CONSTRAINT CK_GenerationLogs_Duration CHECK (DurationMs IS NULL OR DurationMs >= 0)
 );
 GO

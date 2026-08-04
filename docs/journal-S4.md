@@ -1,8 +1,8 @@
 # Journal de développement — S4
 
-## Étape S4A — flux de génération
+## S4A — flux de génération
 
-Le flux validé est :
+Flux implémenté :
 
 ```text
 ClaimsController
@@ -14,9 +14,9 @@ ClaimsController
 
 Trois types sont disponibles : `summary`, `letter` et `response`. Le fournisseur initial `deterministic-template` utilise le prompt `1.0`. Chaque réponse publique indique `requiresHumanValidation: true`.
 
-## Étape S4B — fournisseur Groq
+## S4B — fournisseur Groq
 
-S4B introduit une abstraction de fournisseur dans FastAPI :
+FastAPI utilise une abstraction interchangeable :
 
 ```text
 GenerationProvider
@@ -24,37 +24,54 @@ GenerationProvider
 └── GroqProvider → AsyncGroq → GroqCloud
 ```
 
-Le fournisseur est sélectionné avec `LLM_PROVIDER`. Le mode `deterministic` reste la valeur par défaut et ne requiert aucun secret. Le mode `groq` utilise `GROQ_API_KEY`, `GROQ_MODEL`, `GROQ_TEMPERATURE`, `GROQ_MAX_TOKENS` et `GROQ_TIMEOUT_SECONDS`.
+Le fournisseur est sélectionné avec `LLM_PROVIDER`. Le mode `deterministic` ne requiert aucun secret ; le mode `groq` utilise la clé locale et le modèle configuré.
 
-Les prompts Groq sont centralisés. La version `2.1` impose l’usage exclusif du contexte, la devise TND sans conversion, l’interdiction de toute décision d’indemnisation et de tout envoi automatique, ainsi que la validation humaine obligatoire.
+Les prompts Groq version `2.1` imposent : usage exclusif du contexte, montants en TND sans conversion, aucune décision d’indemnisation, aucun envoi automatique et validation humaine obligatoire.
 
-Les erreurs d’authentification, de limite, de capacité, de timeout et d’indisponibilité sont converties en messages assainis. La clé et les messages bruts du fournisseur ne sont jamais exposés.
+Les erreurs d’authentification, limite, capacité, timeout, requête invalide et indisponibilité sont converties en messages publics assainis.
 
-Quatorze tests Python couvrent le contrat FastAPI, les trois types de génération, le fournisseur Groq simulé, les erreurs assainies, la réponse vide, la convention TND et la séparation entre règles, contexte et instruction utilisateur. Aucun test ne réalise d’appel Groq réel.
+## Tests enregistrés
 
-## Validation manuelle finale
-
-Une première génération Groq complète pour `CLM-3972B1FD` avait révélé une devise euro inventée. Le prompt a été corrigé et versionné `2.1`.
-
-La validation finale du 25 juillet 2026 confirme :
-
-- 14 tests Python réussis en `0,73 s` ;
 - 23 tests .NET réussis dans GitHub Actions ;
-- génération complète `.NET → FastAPI → Groq → GenerationLogs` ;
-- `generationId` : `8344e840-1dda-43cf-97f8-5e08373f8e16` ;
-- modèle : `llama-3.3-70b-versatile` ;
-- prompt : `2.1` ;
-- durée : `894 ms` ;
-- montants correctement exprimés en TND ;
+- 14 tests Python réussis sans appel réseau ;
+- couverture des trois types, contrats, erreurs, TND et règles de sécurité.
+
+## Validation Groq
+
+Une première génération avait inventé une devise en euros. Le prompt a été renforcé et versionné `2.1`.
+
+La validation du 25 juillet 2026 a confirmé :
+
+- flux `.NET → FastAPI → Groq → GenerationLogs` ;
+- modèle `llama-3.3-70b-versatile` ;
+- prompt `2.1` ;
+- montants en TND ;
 - `success=true` et `errorMessage=null` ;
 - `requiresHumanValidation=true` ;
 - aucune décision ni aucun envoi automatique.
 
-S4B est donc implémentée et validée localement. Aucun secret ne doit être commité.
+## Incident corrigé — cohérence du type `letter`
+
+Le 31 juillet 2026, `letter` retournait HTTP 500 alors que Groq produisait correctement le contenu.
+
+Cause : .NET et FastAPI utilisaient `letter`, mais la contrainte SQL `CK_GenerationLogs_Type` autorisait encore `status_letter`. L’enregistrement dans `GenerationLogs` échouait.
+
+Correction :
+
+- remplacement de `status_letter` par `letter` dans la base active ;
+- mise à jour de `database/schema.sql` ;
+- cohérence vérifiée pour `summary`, `letter` et `response` ;
+- nouvelle validation de la génération et de la persistance de `letter`.
+
+## Démarrage stabilisé
+
+Les secrets sont centralisés dans le `.env` racine. `start.cmd` charge la configuration, vérifie les dépendances Python, démarre les trois services, contrôle les endpoints de santé et ouvre Swagger. Cette vérification évite qu’un environnement virtuel existant mais incomplet provoque une erreur `ModuleNotFoundError`.
 
 ## Commandes de régression
 
-```bash
-dotnet test AstreeClaims.sln
-cd ai-service && python -m pytest -q
+```powershell
+dotnet test .\AstreeClaims.sln
+.\ai-service\.venv\Scripts\python.exe -m pytest .\ai-service\tests -q
 ```
+
+S4 est considérée terminée : moteur de génération fonctionnel, trois cas d’usage, journalisation, sécurité, tests et documentation cohérente.

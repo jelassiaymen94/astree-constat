@@ -27,3 +27,6 @@ Thumbs.db
 # Local source and generated import data
 data/raw/
 data/processed/*.csv
+
+# Local launcher state
+.run/

@@ -2,7 +2,7 @@
 
 ## Objectif
 
-La V1 sépare les données et règles métier .NET de la future génération LLM dans FastAPI. La solution reste simple, démontrable et adaptée à un stage de six semaines.
+La solution sépare les données et règles métier du moteur de génération. L’API ASP.NET Core construit un contexte contrôlé à partir de SQL Server, FastAPI applique les règles de prompt et un fournisseur interchangeable produit le brouillon. Aucune génération n’est envoyée automatiquement et toute sortie exige une validation humaine.
 
 ## Vue opérationnelle
 
@@ -12,17 +12,16 @@ Swagger / client HTTP
         ▼
 ASP.NET Core Web API (.NET 8)
 ├── ClaimsController
-├── DTOs
 ├── ClaimsService
+├── ClaimGenerationService
+├── AiGenerationClient
 ├── gestion globale des erreurs
-├── importeur de données
 └── Entity Framework Core 8
-        │
-        ▼
-SQL Server 2022 / AstreeClaimsDb
-
-ASP.NET Core ──HTTP/JSON──> FastAPI
-                                  └── futur LLM en S4
+        │                         │
+        ▼                         └── HTTP/JSON ──> FastAPI
+SQL Server 2022                                      ├── DeterministicProvider
+├── données métier                                   └── GroqProvider → GroqCloud
+└── GenerationLogs
 ```
 
 ## Backend métier
@@ -32,113 +31,110 @@ ASP.NET Core ──HTTP/JSON──> FastAPI
 `ClaimsController` expose :
 
 ```http
-GET /api/claims
-GET /api/claims/{claimId}
-GET /api/claims/{claimId}/context
+GET  /api/claims
+GET  /api/claims/{claimId}
+GET  /api/claims/{claimId}/context
+POST /api/claims/{claimId}/generate
+GET  /api/claims/{claimId}/generations
 ```
 
-Il ne retourne jamais directement les entités Entity Framework.
+Les entités Entity Framework ne sont jamais retournées directement.
 
-### DTOs
+### Services
 
-- `ClaimDto`
-- `CustomerDto`
-- `ContractDto`
-- `VehicleDto`
-- `ClaimContextDto`
-- `ClaimListQueryDto`
-- `PagedResultDto<T>`
-- `ApiErrorDto`
+`ClaimsService` centralise la pagination, les filtres, la recherche et la construction du contexte consolidé. Les lectures utilisent `AsNoTracking()` et un tri stable.
 
-### Service
-
-`IClaimsService` et `ClaimsService` centralisent :
-
-- pagination ;
-- filtres ;
-- recherche par identifiant ;
-- projections EF vers les DTOs ;
-- contexte consolidé.
-
-Les lectures utilisent `AsNoTracking()` et un tri stable par date décroissante puis identifiant.
-
-## Gestion des erreurs — 4B
-
-`GlobalExceptionHandler` utilise `IExceptionHandler` de .NET 8.
+`ClaimGenerationService` orchestre le flux de génération :
 
 ```text
-ClaimNotFoundException       → 404 CLAIM_NOT_FOUND
-AiServiceUnavailableException → 502 AI_SERVICE_UNAVAILABLE
-DbException                   → 503 DATABASE_UNAVAILABLE
-Exception                     → 500 INTERNAL_ERROR
-Validation ASP.NET     → 400 INVALID_REQUEST
+ClaimsController
+→ ClaimGenerationService
+→ ClaimsService / contexte consolidé
+→ AiGenerationClient
+→ FastAPI /api/v1/generate
+→ GenerationLogs
 ```
 
-Chaque réponse contient un `traceId`. Les erreurs serveur sont journalisées sans exposer de stack trace, secret ou chaîne de connexion dans la réponse HTTP.
+`AiGenerationClient` maintient le contrat HTTP entre .NET et FastAPI et convertit les indisponibilités du service IA en erreur publique assainie.
 
 ## Import S3
 
-`DataImportService` lit les CSV préparés et valide :
-
-- en-têtes ;
-- valeurs obligatoires ;
-- dates et montants ;
-- unicité des identifiants ;
-- relations ;
-- cohérence temporelle.
-
-L’ordre d’insertion est : clients, contrats, véhicules, sinistres. Une transaction couvre l’ensemble. Les identifiants existants sont ignorés pour assurer l’idempotence.
-
-L’import est déclenché manuellement :
+`DataImportService` lit les CSV préparés, vérifie les en-têtes, valeurs obligatoires, dates, montants, identifiants, relations et cohérence temporelle. Une transaction couvre l’insertion des clients, contrats, véhicules et sinistres. Les identifiants existants sont ignorés afin de rendre l’import idempotent.
 
 ```bash
-dotnet run -- --import-data --import-dir ../../data/processed
+dotnet run --project backend/AstreeClaims.Api -- --import-data --import-dir data/processed
 ```
-
-## Architecture des tests — 5A
-
-Le projet `tests/AstreeClaims.Api.Tests` référence l’API sans modifier son stockage de production.
-
-```text
-xUnit
-├── ClaimsServiceTests ──> DbContext SQLite en mémoire
-├── ClaimsApiTests ──────> WebApplicationFactory<Program>
-└── DataImportServiceTests ──> CSV temporaires + transaction SQLite
-```
-
-`ClaimsApiFactory` remplace l’enregistrement SQL Server par une connexion SQLite en mémoire ouverte pendant la durée des tests. Un petit jeu cohérent de clients, contrats, véhicules et sinistres est créé avec `EnsureCreated`. L’environnement `Testing` désactive uniquement la redirection HTTPS afin que le client d’intégration appelle directement l’application en mémoire.
-
-Cette séparation garantit des tests rapides, reproductibles et indépendants de Docker et de la base `AstreeClaimsDb`.
 
 ## SQL Server
 
-Tables :
+La base `AstreeClaimsDb` contient :
 
-- `Clients`
-- `Contrats`
-- `Vehicules`
-- `Sinistres`
-- `GenerationLogs`
+- `Clients` ;
+- `Contrats` ;
+- `Vehicules` ;
+- `Sinistres` ;
+- `GenerationLogs`.
 
-`GenerationLogs` est préparée mais sera utilisée avec l’intégration LLM en S4.
+`GenerationLogs` journalise chaque tentative : type, instruction, contenu, modèle, version du prompt, durée, succès, erreur et date. Les types autorisés sont `summary`, `letter` et `response`.
 
-## FastAPI
+## FastAPI et fournisseurs
 
-FastAPI expose actuellement `/health`. Il n’accède pas directement à SQL Server. L’appel réel au LLM est hors périmètre S3.
+FastAPI expose :
 
-## Sécurité
+```http
+GET  /health
+POST /api/v1/generate
+```
 
-- secrets SQL dans `.env` pour Docker et `dotnet user-secrets` pour .NET ;
-- aucune clé dans Git ;
-- données synthétiques ;
-- journalisation sans secret ;
-- validation humaine obligatoire pour toute future génération.
+L’abstraction de fournisseur permet deux modes :
 
-## Hors périmètre S3
+```text
+GenerationProvider
+├── DeterministicProvider  # tests reproductibles, sans réseau
+└── GroqProvider           # génération réelle, asynchrone
+```
 
-- RAG ;
-- analyse PDF ;
-- fine-tuning ;
-- frontend complet ;
-- envoi automatique ;
-- décision automatique d’indemnisation.
+Le fournisseur est choisi avec `LLM_PROVIDER=deterministic|groq`. Les prompts Groq sont centralisés dans `ai-service/app/prompts.py` et utilisent la version `2.1`.
+
+## Gestion des erreurs
+
+```text
+Validation ASP.NET             → 400 INVALID_REQUEST
+ClaimNotFoundException         → 404 CLAIM_NOT_FOUND
+AiServiceUnavailableException  → 502 AI_SERVICE_UNAVAILABLE
+DbException                    → 503 DATABASE_UNAVAILABLE
+Exception inattendue           → 500 INTERNAL_ERROR
+```
+
+Chaque erreur publique contient un `traceId` sans stack trace, secret, chaîne de connexion ni message brut du fournisseur.
+
+## Tests
+
+```text
+.NET / xUnit
+├── services Claims
+├── API et erreurs publiques
+├── import transactionnel
+└── génération et journalisation
+
+Python / pytest
+├── contrat FastAPI
+├── summary, letter et response
+├── fournisseur déterministe
+├── fournisseur Groq simulé
+└── sécurité des prompts et erreurs
+```
+
+Les tests .NET utilisent SQLite en mémoire. Les tests Python n’effectuent aucun appel Groq réel.
+
+## Sécurité et limites
+
+- secrets centralisés dans `.env`, ignoré par Git ;
+- données de démonstration synthétiques ;
+- montants explicitement conservés en TND ;
+- contexte et instruction utilisateur traités comme données non fiables ;
+- aucune décision automatique d’indemnisation ;
+- aucun envoi automatique ;
+- validation humaine obligatoire.
+
+Restent hors périmètre de la V1 : RAG sans documents métier disponibles, analyse PDF, fine-tuning et frontend complet.

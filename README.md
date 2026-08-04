@@ -34,6 +34,25 @@ Prototype d’assistant rédactionnel pour la gestion des sinistres automobiles.
 - flux `.NET → FastAPI → Groq → GenerationLogs` validé avec le modèle `llama-3.3-70b-versatile` ;
 - persistance, prompt `2.1`, TND et validation humaine confirmés.
 
+
+## Démarrage optimisé — une commande
+
+Sous Windows, après avoir renseigné le fichier `.env` à la racine :
+
+```powershell
+.\start.cmd
+```
+
+Le lanceur charge le `.env`, démarre SQL Server, FastAPI et l’API .NET, vérifie les connexions puis ouvre Swagger. Il crée l’environnement Python si nécessaire et réinstalle les dépendances uniquement lorsqu’elles sont manquantes.
+
+Pour tout arrêter sans supprimer les données SQL :
+
+```powershell
+.\stop.cmd
+```
+
+Les secrets sont centralisés dans un seul fichier `.env`. Ne jamais le commiter ni afficher son contenu.
+
 ## Architecture
 
 ```text
@@ -51,7 +70,7 @@ ASP.NET Core Web API (.NET 8)
                             └── GroqProvider / GroqCloud (réel)
 ```
 
-## Démarrage rapide
+## Démarrage manuel de dépannage
 
 ### 1. SQL Server
 
@@ -108,6 +127,12 @@ cd ai-service
 python -m pytest -q
 ```
 
+Sous Windows, la validation complète de S4 peut être rejouée en une commande :
+
+```powershell
+.\validate-s4.cmd
+```
+
 ## Endpoints
 
 ```http
@@ -139,6 +164,7 @@ Le contrat de réponse FastAPI conserve `content`, `modelName`, `promptVersion` 
 - `docs/installation.md`
 - `docs/testing.md`
 - `docs/journal-S4.md`
+- `docs/validation-S4.md`
 
 ## Auteur
 

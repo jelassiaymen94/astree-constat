@@ -2,25 +2,23 @@
 
 ## Conventions
 
-- JSON UTF-8 ;
+- JSON UTF-8 et propriétés en camelCase ;
 - dates ISO 8601 ;
-- montants JSON numériques ;
-- propriétés JSON en camelCase ;
-- pagination à partir de 1 ;
-- taille maximale d’une page : 100 ;
+- montants JSON numériques exprimés en TND ;
+- pagination à partir de 1, taille maximale 100 ;
 - toute génération est un brouillon soumis à validation humaine.
 
 ## Consultation des sinistres
 
-### Lister les sinistres
+### Lister
 
 ```http
 GET /api/claims?page=1&pageSize=20&status=Ouvert&type=Accident&search=CLM-
 ```
 
-Tous les paramètres sont facultatifs. `status` et `type` utilisent une égalité exacte ; `search` recherche une partie de `ClaimId`.
+Les paramètres sont facultatifs. `status` et `type` utilisent une égalité exacte ; `search` recherche une partie de `ClaimId`.
 
-### Charger un sinistre
+### Charger un dossier
 
 ```http
 GET /api/claims/{claimId}
@@ -34,11 +32,11 @@ Retourne un `ClaimDto` ou HTTP `404 CLAIM_NOT_FOUND`.
 GET /api/claims/{claimId}/context
 ```
 
-Retourne les objets `claim`, `customer`, `contract` et `vehicle` nécessaires à la génération.
+Retourne `claim`, `customer`, `contract` et `vehicle`.
 
-## Génération de brouillons — S4A
+## Génération de brouillons — S4
 
-### Générer un brouillon
+### Générer
 
 ```http
 POST /api/claims/{claimId}/generate
@@ -52,71 +50,72 @@ Content-Type: application/json
 }
 ```
 
-Valeurs acceptées :
+Types autorisés :
 
-- `summary` : synthèse interne ;
-- `letter` : projet de courrier ;
-- `response` : projet de réponse au client.
+- `summary` : synthèse interne du dossier ;
+- `letter` : projet de courrier destiné à l’assuré ;
+- `response` : projet de réponse contextualisée.
 
 `userInstruction` est facultatif et limité à 1 000 caractères.
 
-Réponse HTTP `200` :
+Exemple de réponse Groq HTTP `200` :
 
 ```json
 {
-  "generationId": "4d47802e-817b-4dce-bb7e-1395543b74a7",
+  "generationId": "8344e840-1dda-43cf-97f8-5e08373f8e16",
   "claimId": "CLM-3972B1FD",
   "generationType": "summary",
   "userInstruction": "Rester factuel et concis.",
-  "generatedContent": "Synthèse du sinistre...",
-  "modelName": "deterministic-template",
-  "promptVersion": "1.0",
+  "generatedContent": "Brouillon de synthèse...",
+  "modelName": "llama-3.3-70b-versatile",
+  "promptVersion": "2.1",
   "success": true,
   "errorMessage": null,
-  "createdAt": "2026-07-25T01:02:07Z",
-  "durationMs": 1,
+  "createdAt": "2026-07-25T13:50:00Z",
+  "durationMs": 894,
   "requiresHumanValidation": true
 }
 ```
 
-Le contenu n’est jamais envoyé automatiquement et ne constitue pas une décision d’indemnisation.
+En mode déterministe, le contrat reste identique avec `modelName=deterministic-template` et `promptVersion=1.0`.
 
-### Historique des générations
+### Historique
 
 ```http
 GET /api/claims/{claimId}/generations
 ```
 
-Retourne un tableau de `GenerationDto`, de la tentative la plus récente à la plus ancienne. Les succès et les échecs sont conservés dans `GenerationLogs`.
+Retourne les tentatives de la plus récente à la plus ancienne. Les succès et échecs sont conservés dans `GenerationLogs`.
 
-### Contrat interne FastAPI
+## Contrat interne FastAPI
 
 ```http
 POST /api/v1/generate
 Content-Type: application/json
 ```
 
-La requête contient `generationType`, `userInstruction` et le contexte consolidé. FastAPI retourne :
+La requête contient `generationType`, `userInstruction` et le contexte consolidé. La réponse contient :
 
 ```json
 {
   "content": "Brouillon généré...",
-  "modelName": "deterministic-template",
-  "promptVersion": "1.0",
-  "durationMs": 1
+  "modelName": "llama-3.3-70b-versatile",
+  "promptVersion": "2.1",
+  "durationMs": 894
 }
 ```
 
-Le modèle `deterministic-template` valide le flux HTTP et la persistance avant l’intégration d’un fournisseur LLM réel en S4B.
+Le fournisseur est sélectionné par `LLM_PROVIDER` : `deterministic` pour les tests ou `groq` pour la génération réelle.
 
-## Endpoints de santé
+## Santé
 
 ```http
 GET /api/health/database
 GET /api/health/ai
+GET /health
 ```
 
-## Format uniforme des erreurs
+## Erreurs publiques
 
 ```json
 {
@@ -129,10 +128,10 @@ GET /api/health/ai
 
 | HTTP | Code | Utilisation |
 |---:|---|---|
-| 400 | `INVALID_REQUEST` | Paramètre, pagination ou type de génération invalide |
+| 400 | `INVALID_REQUEST` | Requête ou type de génération invalide |
 | 404 | `CLAIM_NOT_FOUND` | Sinistre introuvable |
-| 502 | `AI_SERVICE_UNAVAILABLE` | FastAPI inaccessible, timeout ou réponse invalide |
+| 502 | `AI_SERVICE_UNAVAILABLE` | FastAPI, Groq, timeout ou réponse invalide |
 | 503 | `DATABASE_UNAVAILABLE` | SQL Server inaccessible |
 | 500 | `INTERNAL_ERROR` | Erreur interne non prévue |
 
-Les réponses publiques n’exposent ni stack trace, ni chaîne de connexion, ni détail SQL.
+Les réponses publiques n’exposent aucun secret, détail SQL, stack trace ou message brut Groq.

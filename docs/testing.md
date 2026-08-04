@@ -1,6 +1,4 @@
-# Plan et résultats de tests S3
-
-Statuts : `Réussi`, `Automatisé`, `À exécuter`, `Non commencé`.
+# Plan et résultats de tests — S3 et S4
 
 ## Données et import
 
@@ -10,10 +8,7 @@ Statuts : `Réussi`, `Automatisé`, `À exécuter`, `Non commencé`.
 | Relations source | zéro relation cassée | Réussi |
 | Premier import | 2 048 / 2 179 / 2 179 / 3 460 insertions | Réussi |
 | Deuxième import | zéro insertion | Réussi |
-| Vérification SQL | tous les contrôles à zéro | Réussi |
-| Doublons SQL | aucune ligne | Réussi |
-
-Preuves : captures SSMS des comptages, contrôles relationnels, statuts et types.
+| Vérifications SQL | contrôles à zéro, aucun doublon | Réussi |
 
 ## Santé technique
 
@@ -23,71 +18,74 @@ Preuves : captures SSMS des comptages, contrôles relationnels, statuts et types
 | FastAPI `/health` | `status: healthy` | Réussi |
 | `/api/health/ai` | `connected: true` | Réussi |
 
-## Endpoints Claims — 4A
+## Consultation et erreurs
 
-| Test | Résultat attendu | Statut |
-|---|---|---|
-| `GET /api/claims?page=1&pageSize=5` | 5 éléments, total 3 460 | Réussi |
-| Page 2 | éléments différents | Réussi |
-| `status=Ouvert` | total 996 | Réussi |
-| `type=Accident` | total 1 878 | Réussi |
-| Recherche identifiant | uniquement les identifiants correspondants | Réussi |
-| Détail existant | HTTP 200 | Réussi |
-| Contexte consolidé | quatre objets cohérents | Réussi |
+Sont couverts : pagination, filtres, recherche, détail, contexte consolidé, paramètres invalides, sinistre absent, indisponibilité SQL/FastAPI, réponse publique sans stack trace et corrélation par `traceId`.
 
-## Gestion des erreurs — 4B
+## Tests .NET
 
-| Test | Requête / action | Résultat attendu | Statut |
-|---|---|---|---|
-| Page invalide | `page=0` | 400 `INVALID_REQUEST` | Réussi |
-| Taille invalide | `pageSize=101` | 400 `INVALID_REQUEST` | Réussi |
-| Sinistre absent | `CLM-INEXISTANT` | 404 `CLAIM_NOT_FOUND` | Réussi |
-| Contexte absent | `CLM-INEXISTANT/context` | 404 `CLAIM_NOT_FOUND` | Réussi |
-| FastAPI arrêté | `GET /api/health/ai` | 502 `AI_SERVICE_UNAVAILABLE` | Réussi |
-| SQL arrêté | `GET /api/claims` | 503 `DATABASE_UNAVAILABLE` | Réussi |
-| Erreur publique | réponse sans stack trace | Réussi |
-| Corrélation | `traceId` présent dans la réponse et les logs | Réussi |
-| Régression | services redémarrés, liste HTTP 200 | Réussi |
+Le projet `tests/AstreeClaims.Api.Tests/` utilise xUnit, `WebApplicationFactory<Program>` et SQLite en mémoire. Il ne dépend ni de SQL Server Docker ni des données de développement.
 
-Swagger bloque localement les valeurs hors contraintes OpenAPI, comme `page=0`. La réponse HTTP 400 réelle a donc été vérifiée avec curl ou le fichier `AstreeClaims.Api.http`.
+La suite comprend **23 tests** couvrant :
 
-## Tests automatisés — 5A
+- services Claims et contexte relationnel ;
+- API HTTP 200, 400 et 404 ;
+- structure de `ApiErrorDto` et absence de stack trace ;
+- import initial, idempotence, relations, dates et rollback ;
+- endpoints de génération et journalisation.
 
-Le projet `tests/AstreeClaims.Api.Tests/` utilise xUnit, `Microsoft.AspNetCore.Mvc.Testing` et SQLite en mémoire. Il ne dépend ni de SQL Server Docker ni des 3 460 lignes de développement.
+Dernière validation enregistrée dans le projet : 23 tests réussis dans GitHub Actions le 25 juillet 2026.
 
-### Couverture ajoutée
+## Tests Python
 
-- services Claims : pagination, deuxième page, filtres, recherche, détail existant ou absent et contexte relationnel ;
-- API : HTTP 200, validations HTTP 400, HTTP 404, structure de `ApiErrorDto`, `traceId` et absence de stack trace ;
-- import : premier import, idempotence, date hors contrat, relation cassée et rollback transactionnel.
+La suite FastAPI comprend **14 tests** couvrant :
 
-La suite contient 18 cas de test. Exécution locale validée le 25 juillet 2026 : 18 tests réussis, 0 échec, 0 ignoré.
+- le contrat `/api/v1/generate` ;
+- `summary`, `letter` et `response` ;
+- le fournisseur déterministe ;
+- Groq simulé sans appel réseau ;
+- erreurs assainies, timeout et réponse vide ;
+- convention monétaire TND ;
+- séparation entre règles système, contexte et instruction utilisateur.
 
-### Exécution
+Dernière validation enregistrée : 14 tests réussis le 25 juillet 2026.
 
-Depuis la racine :
+## Commandes de régression
 
-```bash
-dotnet restore
-dotnet test AstreeClaims.sln
+```powershell
+dotnet restore .\AstreeClaims.sln
+dotnet test .\AstreeClaims.sln
+.\ai-service\.venv\Scripts\python.exe -m pytest .\ai-service\tests -q
 ```
 
-Avec couverture :
+Avec couverture .NET :
 
-```bash
-dotnet test AstreeClaims.sln --collect:"XPlat Code Coverage"
+```powershell
+dotnet test .\AstreeClaims.sln --collect:"XPlat Code Coverage"
 ```
 
-Pour exécuter uniquement le projet de tests :
+## Validation manuelle end-to-end S4
 
-```bash
-dotnet test tests/AstreeClaims.Api.Tests/AstreeClaims.Api.Tests.csproj
-```
+Dossier de référence : `CLM-3972B1FD`.
 
-## Critères de clôture 5A
+| Test | Attendu |
+|---|---|
+| `summary` | HTTP 200, contenu factuel |
+| `letter` | HTTP 200, courrier professionnel |
+| `response` | HTTP 200, réponse contextualisée |
+| Persistance | trois types présents dans `GenerationLogs` |
+| Métadonnées | modèle, prompt, durée et succès renseignés |
+| Sécurité | `requiresHumanValidation=true` |
+| Devise | montants uniquement en TND |
+| Limites | aucune décision ou promesse de paiement |
 
-- `dotnet build` sans erreur ;
-- 18 tests réussis ;
-- aucun accès à la base de développement ;
-- aucune dépendance à Docker ;
-- documentation cohérente avec les résultats réellement observés.
+Le 31 juillet 2026, la validation manuelle a détecté puis corrigé l’incohérence SQL `status_letter`/`letter`. Après mise à jour de `CK_GenerationLogs_Type`, la génération `letter` et sa persistance ont été validées.
+
+## Critères de clôture S4
+
+- les trois types sont cohérents sur .NET, FastAPI et SQL ;
+- la génération réelle Groq fonctionne de bout en bout ;
+- le mode déterministe reste disponible ;
+- les générations sont auditables ;
+- aucun secret n’est versionné ;
+- la documentation correspond au comportement actuel.
