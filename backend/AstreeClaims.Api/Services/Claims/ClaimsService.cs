@@ -35,7 +35,12 @@ public sealed class ClaimsService : IClaimsService
         var search = query.Search?.Trim();
         if (!string.IsNullOrEmpty(search))
         {
-            claimsQuery = claimsQuery.Where(claim => claim.ClaimId.Contains(search));
+            // La même barre recherche une référence ou le nom de l'assuré,
+            // dans l'ordre « prénom nom » ou « nom prénom ».
+            claimsQuery = claimsQuery.Where(claim =>
+                claim.ClaimId.Contains(search) ||
+                (claim.Client.Prenom + " " + claim.Client.Nom).Contains(search) ||
+                (claim.Client.Nom + " " + claim.Client.Prenom).Contains(search));
         }
 
         var total = await claimsQuery.CountAsync(cancellationToken);
@@ -56,11 +61,7 @@ public sealed class ClaimsService : IClaimsService
                 claim.Statut))
             .ToListAsync(cancellationToken);
 
-        return new PagedResultDto<ClaimDto>(
-            items,
-            query.Page,
-            query.PageSize,
-            total);
+        return new PagedResultDto<ClaimDto>(items, query.Page, query.PageSize, total);
     }
 
     public Task<ClaimDto?> GetClaimAsync(

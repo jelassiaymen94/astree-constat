@@ -18,6 +18,7 @@ public sealed class ClaimListQueryDto
     [MaxLength(100)]
     public string? Type { get; init; }
 
-    [MaxLength(20)]
+    // Accepte une référence de sinistre ou le nom complet d'un assuré.
+    [MaxLength(201)]
     public string? Search { get; init; }
 }
