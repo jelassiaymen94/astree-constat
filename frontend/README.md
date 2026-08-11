@@ -1,18 +1,30 @@
 # Frontend — ASTREE Claims AI
 
-Ce dossier accueillera l’interface de démonstration du projet ASTREE Claims AI.
+Prototype React en français pour consulter les sinistres, afficher leur contexte consolidé, générer des brouillons et consulter leur historique.
 
-## Stack prévue
+## Démarrage
 
-- React
-- Vite
-- TypeScript
-- Tailwind CSS
+Lancer d’abord SQL Server, FastAPI et l’API .NET depuis la racine :
 
-## Parcours prioritaire
+```powershell
+.\start.cmd
+```
 
-1. Consulter et filtrer les sinistres.
-2. Afficher le détail et le contexte consolidé d’un dossier.
-3. Générer une synthèse, un courrier ou une réponse.
-4. Consulter l’historique des générations.
-5. Signaler clairement que chaque contenu généré nécessite une validation humaine.
+Puis :
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Ouvrir `http://localhost:5173`. Le proxy Vite redirige `/api` vers `http://localhost:5294`.
+
+## Build
+
+```bash
+npm run build
+npm run preview
+```
+
+Les contenus IA restent des brouillons soumis à validation humaine.
