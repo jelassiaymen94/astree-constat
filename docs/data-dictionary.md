@@ -12,8 +12,9 @@ Source unique : `donnees_assurance_tunisie2.xlsx`. Les autres jeux de données n
 | `Nom` | `Nom` | `NVARCHAR(100)` | Oui |
 | `Prénom` | `Prenom` | `NVARCHAR(100)` | Oui |
 | `Gouvernorat` | `Gouvernorat` | `NVARCHAR(100)` | Oui |
+| — | `Email` | `NVARCHAR(254)` | Non |
 
-Les colonnes de profil, risque, revenu et comportement ne sont pas importées en S3.
+Les colonnes de profil, risque, revenu et comportement ne sont pas importées en S3. L’adresse e-mail a été ajoutée pour la démonstration d’envoi ; l’import historique ne la renseigne pas. En son absence, le backend construit une adresse fictive à partir de `ClientId`.
 
 ## Contrats
 
@@ -84,4 +85,27 @@ Règles : montants positifs ou nuls et date du sinistre comprise dans la périod
 
 ## GenerationLogs
 
-Table réservée à S4 : identifiant, sinistre, type de génération, instruction, contenu, modèle, version du prompt, succès, erreur, date et durée. Aucun contenu LLM n’est généré en S3.
+Journal de chaque tentative de génération : identifiant, sinistre, type de génération, instruction, contenu, modèle, version du prompt, succès, erreur, date et durée. Les types autorisés sont `summary`, `letter` et `response`.
+
+## EmailLogs
+
+Journal des e-mails préparés à partir d’un dossier :
+
+| Colonne | Type SQL | Description |
+|---|---|---|
+| `EmailId` | `UNIQUEIDENTIFIER` | Identifiant technique de l’envoi |
+| `ClientRequestId` | `UNIQUEIDENTIFIER` | Clé d’idempotence unique fournie par le client |
+| `ClaimId` | `NVARCHAR(20)` | Sinistre associé |
+| `GenerationId` | `UNIQUEIDENTIFIER` | Génération source facultative |
+| `RecipientEmail` | `NVARCHAR(254)` | Adresse métier ou fictive du client |
+| `ActualRecipientEmail` | `NVARCHAR(254)` | Adresse réellement utilisée après redirection de démonstration |
+| `Subject` | `NVARCHAR(200)` | Objet validé par le gestionnaire |
+| `BodyHtml` | `NVARCHAR(MAX)` | Message HTML assaini et rendu dans le modèle ASTREE |
+| `BodyText` | `NVARCHAR(MAX)` | Alternative texte envoyée avec le HTML |
+| `Status` | `NVARCHAR(20)` | `pending`, `sent` ou `failed` |
+| `ProviderMessageId` | `NVARCHAR(200)` | Identifiant retourné par le fournisseur SMTP |
+| `ErrorMessage` | `NVARCHAR(MAX)` | Erreur publique assainie en cas d’échec |
+| `CreatedAt` | `DATETIME2` | Date UTC de création |
+| `SentAt` | `DATETIME2` | Date UTC de livraison, si réussie |
+
+`ClientRequestId` empêche un double envoi lors du rejeu d’une requête. Un index sur `(ClaimId, CreatedAt DESC)` optimise l’historique d’un dossier.

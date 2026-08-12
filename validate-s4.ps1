@@ -25,15 +25,18 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "Tests .NET..." -ForegroundColor Cyan
-dotnet test (Join-Path $Root "AstreeClaims.sln") --nologo
+dotnet test (Join-Path $Root "AstreeClaims.sln") -c Release --nologo
 if ($LASTEXITCODE -ne 0) { throw "Échec des tests .NET." }
 
 Write-Host "Tests Python..." -ForegroundColor Cyan
 $previousProvider = $env:LLM_PROVIDER
+$previousPythonPath = $env:PYTHONPATH
 $env:LLM_PROVIDER = "deterministic"
+$env:PYTHONPATH = Join-Path $Root "ai-service"
 & $python -m pytest (Join-Path $Root "ai-service\tests") -q
 $pythonExit = $LASTEXITCODE
 $env:LLM_PROVIDER = $previousProvider
+$env:PYTHONPATH = $previousPythonPath
 if ($pythonExit -ne 0) { throw "Échec des tests Python." }
 
 Write-Host "Validation S4 réussie : cohérence statique, tests .NET et tests Python." -ForegroundColor Green

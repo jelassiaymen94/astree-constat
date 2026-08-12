@@ -35,6 +35,9 @@ Ouvrir `http://localhost:5173`.
 - La liste des sinistres apparaît dans le frontend.
 - Un dossier connu s’ouvre correctement.
 - Une synthèse peut être générée et apparaît dans l’historique.
+- Après une génération, l’éditeur d’e-mail et l’aperçu ASTREE apparaissent.
+- Un envoi confirmé est visible dans Mailtrap et dans l’historique du dossier.
+- `actualRecipientEmail` correspond à l’adresse de redirection prévue en mode démonstration.
 - Aucun secret ou contenu sensible n’est visible à l’écran.
 
 ## Parcours pour l’encadrant
@@ -43,15 +46,19 @@ Ouvrir `http://localhost:5173`.
 2. Ouvrir un dossier et expliquer le contexte consolidé.
 3. Générer une synthèse avec une instruction courte.
 4. Montrer le modèle, la version du prompt, la durée et l’historique.
-5. Expliquer la séparation React → .NET → FastAPI → fournisseur IA → journalisation SQL.
+5. Modifier le contenu dans l’éditeur, ouvrir l’aperçu ASTREE et confirmer l’envoi de démonstration.
+6. Montrer le message dans Mailtrap puis l’entrée `sent` dans l’historique des e-mails.
+7. Expliquer les deux flux : React → .NET → FastAPI → fournisseur IA → `GenerationLogs`, puis React → .NET → SMTP → Mailtrap → `EmailLogs`.
 
 ## Parcours pour un employé ASTREE
 
 1. Rechercher un dossier par sa référence.
 2. Lire les informations du sinistre, de l’assuré, du contrat et du véhicule.
-3. Choisir « Synthèse interne » ou « Courrier à l’assuré ».
-4. Générer et copier le brouillon.
-5. Insister sur le message « validation humaine obligatoire ».
+3. Choisir « Synthèse interne », « Courrier à l’assuré » ou « Réponse contextualisée ».
+4. Générer, relire et éventuellement copier le brouillon.
+5. Pour un courrier, modifier l’objet ou le contenu, prévisualiser le modèle puis confirmer l’envoi de démonstration.
+6. Vérifier l’historique des générations et des e-mails.
+7. Insister sur la validation humaine et l’absence d’envoi automatique.
 
 ## Plan de secours
 
