@@ -5,6 +5,7 @@ using AstreeClaims.Api.DTOs.Common;
 using AstreeClaims.Api.ErrorHandling;
 using AstreeClaims.Api.Exceptions;
 using AstreeClaims.Api.Services.Claims;
+using AstreeClaims.Api.Services.Email;
 using AstreeClaims.Api.Services.Generation;
 using AstreeClaims.Api.Services.Import;
 using Microsoft.AspNetCore.Mvc;
@@ -29,6 +30,8 @@ builder.Services.AddDbContext<AstreeClaimsDbContext>(options => options.UseSqlSe
 builder.Services.AddScoped<IDataImportService, DataImportService>();
 builder.Services.AddScoped<IClaimsService, ClaimsService>();
 builder.Services.AddScoped<IClaimGenerationService, ClaimGenerationService>();
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+builder.Services.AddScoped<IClaimEmailService, ClaimEmailService>();
 var aiServiceBaseUrl = builder.Configuration["AiService:BaseUrl"] ?? "http://localhost:8000";
 var aiServiceTimeoutSeconds = builder.Configuration.GetValue<int?>("AiService:TimeoutSeconds") ?? 30;
 builder.Services.AddHttpClient("AiService", client => { client.BaseAddress = new Uri(aiServiceBaseUrl); client.Timeout = TimeSpan.FromSeconds(aiServiceTimeoutSeconds); });
@@ -51,11 +54,7 @@ app.MapControllers();
 app.MapGet("/api/health/database", async (AstreeClaimsDbContext db) => Results.Ok(new { database = "AstreeClaimsDb", connected = await db.Database.CanConnectAsync() }));
 app.MapGet("/api/health/ai", async (IHttpClientFactory factory) =>
 {
-    try
-    {
-        var response = await factory.CreateClient("AiService").GetAsync("/health");
-        return Results.Ok(new { service = "astree-ai-service", connected = response.IsSuccessStatusCode, statusCode = (int)response.StatusCode, response = await response.Content.ReadAsStringAsync() });
-    }
+    try { var response = await factory.CreateClient("AiService").GetAsync("/health"); return Results.Ok(new { service = "astree-ai-service", connected = response.IsSuccessStatusCode, statusCode = (int)response.StatusCode, response = await response.Content.ReadAsStringAsync() }); }
     catch (Exception exception) { throw new AiServiceUnavailableException(exception); }
 });
 app.Run();
