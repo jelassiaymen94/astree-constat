@@ -1,0 +1,5 @@
+export type EmailLog={emailId:string;clientRequestId:string;claimId:string;generationId:string|null;recipientEmail:string;actualRecipientEmail:string;subject:string;bodyHtml:string;status:'pending'|'sent'|'failed';providerMessageId:string|null;errorMessage:string|null;createdAt:string;sentAt:string|null;demoMode:boolean};
+const base=(import.meta.env.VITE_API_BASE_URL||'').replace(/\/$/,'');
+async function request<T>(path:string,init?:RequestInit):Promise<T>{const response=await fetch(base+path,{...init,headers:{'Content-Type':'application/json',...init?.headers}});if(!response.ok){let payload;try{payload=await response.json()}catch{}throw Error(payload?.message||'Impossible de traiter l’e-mail.')}return response.json()}
+export const sendClaimEmail=(claimId:string,payload:{clientRequestId:string;generationId:string;subject:string;bodyHtml:string;confirmation:boolean})=>request<EmailLog>(`/api/claims/${encodeURIComponent(claimId)}/emails/send`,{method:'POST',body:JSON.stringify(payload)});
+export const getClaimEmails=(claimId:string)=>request<EmailLog[]>(`/api/claims/${encodeURIComponent(claimId)}/emails`);
