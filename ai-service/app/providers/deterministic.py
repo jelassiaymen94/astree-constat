@@ -2,6 +2,7 @@ from time import perf_counter
 
 from app.models import GenerationRequest
 from app.providers.base import ProviderResult
+from app.text_formatting import humanize_status
 
 
 class DeterministicProvider:
@@ -12,7 +13,7 @@ class DeterministicProvider:
         return ProviderResult(
             content=content,
             model_name="deterministic-template",
-            prompt_version="1.0",
+            prompt_version="1.1",
             duration_ms=duration_ms,
         )
 
@@ -23,6 +24,7 @@ class DeterministicProvider:
         contract = request.context.contract
         vehicle = request.context.vehicle
         full_name = f"{customer.first_name} {customer.last_name}".strip()
+        readable_status = humanize_status(claim.status)
         instruction = (
             f"\nInstruction complémentaire : {request.user_instruction.strip()}"
             if request.user_instruction and request.user_instruction.strip()
@@ -37,7 +39,7 @@ class DeterministicProvider:
                 f"Le sinistre de type {claim.type} est survenu le {claim.date} "
                 f"avec le véhicule {vehicle.brand} {vehicle.model}, immatriculé "
                 f"{vehicle.registration_number}. Montant estimé : "
-                f"{claim.estimated_amount:.2f} TND. Statut actuel : {claim.status}."
+                f"{claim.estimated_amount:.2f} TND. Statut actuel : {readable_status}."
                 f"{instruction}\n\nBrouillon à valider par un gestionnaire."
             )
 
@@ -47,7 +49,7 @@ class DeterministicProvider:
                 f"Madame, Monsieur {customer.last_name},\n\n"
                 f"Nous confirmons la prise en charge de votre déclaration du "
                 f"{claim.date}, relative au véhicule {vehicle.brand} {vehicle.model}. "
-                f"Votre dossier est actuellement au statut « {claim.status} »."
+                f"Votre dossier est actuellement au statut « {readable_status} »."
                 f"{instruction}\n\n"
                 "Ce courrier est un brouillon soumis à validation humaine."
             )
@@ -57,6 +59,6 @@ class DeterministicProvider:
             f"Bonjour {full_name},\n\n"
             f"Votre demande concernant le sinistre du {claim.date} a bien été "
             f"prise en compte. Le dossier est actuellement au statut "
-            f"« {claim.status} »."
+            f"« {readable_status} »."
             f"{instruction}\n\nBrouillon à valider avant envoi."
         )
