@@ -23,29 +23,25 @@ public sealed partial class ClaimEmailService : IClaimEmailService
         var normalizedId = claimId.Trim();
         var existing = await _db.EmailLogs.AsNoTracking().SingleOrDefaultAsync(x => x.ClientRequestId == request.ClientRequestId, cancellationToken);
         if (existing is not null) return Map(existing);
-
         var claim = await _db.Sinistres.AsNoTracking().Include(x => x.Client).SingleOrDefaultAsync(x => x.ClaimId == normalizedId, cancellationToken)
             ?? throw new ClaimNotFoundException(normalizedId);
 
         var recipient = claim.Client.Email ?? $"{claim.Client.ClientId.ToLowerInvariant()}@demo.astree.local";
         var actualRecipient = _demoMode && !string.IsNullOrWhiteSpace(_demoRecipient) ? _demoRecipient.Trim() : recipient;
         _ = new MailAddress(actualRecipient);
-        var safeHtml = SanitizeHtml(request.BodyHtml);
-        var text = WebUtility.HtmlDecode(TagsRegex().Replace(safeHtml, " "));
+        var editedHtml = SanitizeHtml(request.BodyHtml);
+        var renderedHtml = EmailTemplate.Render(request.Subject.Trim(), normalizedId, editedHtml);
+        var text = WebUtility.HtmlDecode(TagsRegex().Replace(editedHtml, " "));
         text = WhitespaceRegex().Replace(text, " ").Trim();
 
-        var log = new EmailLog
-        {
-            EmailId = Guid.NewGuid(), ClientRequestId = request.ClientRequestId, ClaimId = normalizedId,
+        var log = new EmailLog { EmailId = Guid.NewGuid(), ClientRequestId = request.ClientRequestId, ClaimId = normalizedId,
             GenerationId = request.GenerationId, RecipientEmail = recipient, ActualRecipientEmail = actualRecipient,
-            Subject = request.Subject.Trim(), BodyHtml = safeHtml, BodyText = text, Status = "pending", CreatedAt = DateTime.UtcNow
-        };
+            Subject = request.Subject.Trim(), BodyHtml = renderedHtml, BodyText = text, Status = "pending", CreatedAt = DateTime.UtcNow };
         _db.EmailLogs.Add(log);
         await _db.SaveChangesAsync(cancellationToken);
-
         try
         {
-            var result = await _sender.SendAsync(new OutgoingEmail(actualRecipient, log.Subject, safeHtml, text), cancellationToken);
+            var result = await _sender.SendAsync(new OutgoingEmail(actualRecipient, log.Subject, renderedHtml, text), cancellationToken);
             log.Status = "sent"; log.ProviderMessageId = result.ProviderMessageId; log.SentAt = DateTime.UtcNow;
             await _db.SaveChangesAsync(cancellationToken);
             return Map(log);
@@ -66,15 +62,7 @@ public sealed partial class ClaimEmailService : IClaimEmailService
     }
 
     private ClaimEmailDto Map(EmailLog x) => new(x.EmailId, x.ClientRequestId, x.ClaimId, x.GenerationId, x.RecipientEmail, x.ActualRecipientEmail, x.Subject, x.BodyHtml, x.Status, x.ProviderMessageId, x.ErrorMessage, x.CreatedAt, x.SentAt, _demoMode);
-
-    private static string SanitizeHtml(string html)
-    {
-        var value = DangerousBlocksRegex().Replace(html, "");
-        value = EventAttributesRegex().Replace(value, "");
-        value = JavascriptUrlsRegex().Replace(value, "");
-        return value.Trim();
-    }
-
+    private static string SanitizeHtml(string html) { var value = DangerousBlocksRegex().Replace(html, ""); value = EventAttributesRegex().Replace(value, ""); value = JavascriptUrlsRegex().Replace(value, ""); return value.Trim(); }
     [GeneratedRegex(@"<(script|style|iframe|object|embed)[^>]*>.*?</\1>", RegexOptions.IgnoreCase | RegexOptions.Singleline)] private static partial Regex DangerousBlocksRegex();
     [GeneratedRegex(@"\s+on\w+\s*=\s*(""[^""]*""|'[^']*'|[^\s>]+)", RegexOptions.IgnoreCase | RegexOptions.Singleline)] private static partial Regex EventAttributesRegex();
     [GeneratedRegex(@"javascript\s*:", RegexOptions.IgnoreCase)] private static partial Regex JavascriptUrlsRegex();
