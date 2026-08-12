@@ -32,9 +32,17 @@ Les erreurs d’authentification, limite, capacité, timeout, requête invalide 
 
 ## Tests enregistrés
 
+Validation historique du 25 juillet 2026 :
+
 - 23 tests .NET réussis dans GitHub Actions ;
 - 14 tests Python réussis sans appel réseau ;
 - couverture des trois types, contrats, erreurs, TND et règles de sécurité.
+
+Validation locale du 12 août 2026 :
+
+- 27 tests .NET réussis en configuration Release, y compris les tests du service e-mail ;
+- 17 tests Python réussis en mode déterministe, sans appel réseau ;
+- compilation TypeScript et build Vite réussis avec 36 modules transformés.
 
 ## Validation Groq
 
@@ -67,11 +75,29 @@ Correction :
 
 Les secrets sont centralisés dans le `.env` racine. `start.cmd` charge la configuration, vérifie les dépendances Python, démarre les trois services, contrôle les endpoints de santé et ouvre Swagger. Cette vérification évite qu’un environnement virtuel existant mais incomplet provoque une erreur `ModuleNotFoundError`.
 
+## Alignement frontend et e-mails — 12 août 2026
+
+La documentation a été réalignée sur l’implémentation actuelle, qui dépasse le périmètre initial de S4 :
+
+- ajout de l’architecture React 19 / TypeScript / Vite et des parcours de consultation, génération et historique ;
+- documentation du flux `React → .NET → SMTP → Mailtrap → EmailLogs` ;
+- ajout des contrats `POST /api/claims/{claimId}/emails/send` et `GET /api/claims/{claimId}/emails` ;
+- description de la confirmation explicite, de l’idempotence par `ClientRequestId`, de la redirection de démonstration et de l’assainissement HTML ;
+- ajout de `Clients.Email` et `EmailLogs` au dictionnaire des données ;
+- ajout de la migration idempotente `database/upgrade-email.sql` et du démarrage frontend aux instructions ;
+- distinction entre `VITE_API_BASE_URL`, préfixe public des clients HTTP, et `VITE_BACKEND_URL`, cible du proxy Vite ;
+- correction de `validate-s4.ps1` pour définir temporairement `PYTHONPATH` vers `ai-service` pendant pytest, puis restaurer l’environnement précédent.
+
+Le frontend reste un prototype de démonstration sans authentification, rôles, pièces jointes, relais SMTP de production ni suite de tests unitaires dédiée.
+
 ## Commandes de régression
 
 ```powershell
-dotnet test .\AstreeClaims.sln
+dotnet test .\AstreeClaims.sln -c Release
+$env:PYTHONPATH = (Resolve-Path .\ai-service).Path
+$env:LLM_PROVIDER = "deterministic"
 .\ai-service\.venv\Scripts\python.exe -m pytest .\ai-service\tests -q
+npm run build --prefix .\frontend
 ```
 
 S4 est considérée terminée : moteur de génération fonctionnel, trois cas d’usage, journalisation, sécurité, tests et documentation cohérente.

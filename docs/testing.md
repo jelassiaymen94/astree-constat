@@ -1,4 +1,4 @@
-# Plan et résultats de tests — S3 et S4
+# Plan et résultats de tests — données, IA, frontend et e-mails
 
 ## Données et import
 
@@ -26,19 +26,20 @@ Sont couverts : pagination, filtres, recherche, détail, contexte consolidé, pa
 
 Le projet `tests/AstreeClaims.Api.Tests/` utilise xUnit, `WebApplicationFactory<Program>` et SQLite en mémoire. Il ne dépend ni de SQL Server Docker ni des données de développement.
 
-La suite comprend **23 tests** couvrant :
+La suite actuelle comprend **27 tests** couvrant :
 
 - services Claims et contexte relationnel ;
 - API HTTP 200, 400 et 404 ;
 - structure de `ApiErrorDto` et absence de stack trace ;
 - import initial, idempotence, relations, dates et rollback ;
-- endpoints de génération et journalisation.
+- endpoints de génération et journalisation ;
+- envoi d’e-mail de démonstration, persistance et assainissement du HTML.
 
-Dernière validation enregistrée dans le projet : 23 tests réussis dans GitHub Actions le 25 juillet 2026.
+La validation GitHub Actions du 25 juillet 2026 comptait 23 tests. La suite actuelle, incluant les tests e-mail, a été rejouée localement le 12 août 2026 en configuration Release : 27 tests réussis.
 
 ## Tests Python
 
-La suite FastAPI comprend **14 tests** couvrant :
+La suite FastAPI comprend **17 tests** couvrant :
 
 - le contrat `/api/v1/generate` ;
 - `summary`, `letter` et `response` ;
@@ -48,14 +49,23 @@ La suite FastAPI comprend **14 tests** couvrant :
 - convention monétaire TND ;
 - séparation entre règles système, contexte et instruction utilisateur.
 
-Dernière validation enregistrée : 14 tests réussis le 25 juillet 2026.
+La validation historique du 25 juillet 2026 comptait 14 tests. La suite actuelle a été rejouée localement le 12 août 2026 : 17 tests réussis, sans appel réseau ni clé réelle.
+
+## Frontend
+
+Le frontend ne possède pas encore de suite de tests unitaires dédiée. La régression minimale exécute `tsc` puis `vite build`, ce qui vérifie les types, les imports et la production du bundle. Le build a été validé localement le 12 août 2026 avec 36 modules transformés.
+
+Les parcours recherche, pagination, ouverture du contexte, génération, édition, aperçu, confirmation et historique des e-mails restent à vérifier manuellement lors de la démonstration.
 
 ## Commandes de régression
 
 ```powershell
 dotnet restore .\AstreeClaims.sln
-dotnet test .\AstreeClaims.sln
+dotnet test .\AstreeClaims.sln -c Release
+$env:PYTHONPATH = (Resolve-Path .\ai-service).Path
+$env:LLM_PROVIDER = "deterministic"
 .\ai-service\.venv\Scripts\python.exe -m pytest .\ai-service\tests -q
+npm run build --prefix .\frontend
 ```
 
 Avec couverture .NET :
