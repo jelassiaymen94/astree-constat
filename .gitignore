@@ -30,3 +30,7 @@ data/processed/*.csv
 
 # Local launcher state
 .run/
+
+# Frontend build
+frontend/node_modules
+frontend/dist
