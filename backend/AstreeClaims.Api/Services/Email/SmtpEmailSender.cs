@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Mail;
+using System.Net.Mime;
+using System.Text;
 
 namespace AstreeClaims.Api.Services.Email;
 
@@ -20,13 +22,28 @@ public sealed class SmtpEmailSender : IEmailSender
         cancellationToken.ThrowIfCancellationRequested();
         using var message = new MailMessage
         {
-            From = new MailAddress(_fromAddress, _fromName),
+            From = new MailAddress(_fromAddress, _fromName, Encoding.UTF8),
             Subject = email.Subject,
-            Body = email.BodyHtml,
-            IsBodyHtml = true
+            SubjectEncoding = Encoding.UTF8,
+            BodyEncoding = Encoding.UTF8,
+            HeadersEncoding = Encoding.UTF8,
+            Body = email.BodyText,
+            IsBodyHtml = false
         };
         message.To.Add(new MailAddress(email.To));
-        message.AlternateViews.Add(AlternateView.CreateAlternateViewFromString(email.BodyText, null, "text/plain"));
+
+        // Multipart/alternative explicite : Mailtrap peut afficher séparément
+        // la version texte et le rendu HTML.
+        var textView = AlternateView.CreateAlternateViewFromString(
+            email.BodyText,
+            Encoding.UTF8,
+            MediaTypeNames.Text.Plain);
+        var htmlView = AlternateView.CreateAlternateViewFromString(
+            email.BodyHtml,
+            Encoding.UTF8,
+            MediaTypeNames.Text.Html);
+        message.AlternateViews.Add(textView);
+        message.AlternateViews.Add(htmlView);
 
         using var smtp = new SmtpClient(_host, _port)
         {
