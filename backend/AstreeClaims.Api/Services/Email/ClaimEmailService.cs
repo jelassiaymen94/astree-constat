@@ -61,7 +61,8 @@ public sealed partial class ClaimEmailService : IClaimEmailService
     public async Task<IReadOnlyList<ClaimEmailDto>> GetHistoryAsync(string claimId, CancellationToken cancellationToken = default)
     {
         if (!await _db.Sinistres.AsNoTracking().AnyAsync(x => x.ClaimId == claimId, cancellationToken)) throw new ClaimNotFoundException(claimId);
-        return await _db.EmailLogs.AsNoTracking().Where(x => x.ClaimId == claimId).OrderByDescending(x => x.CreatedAt).Select(x => Map(x)).ToListAsync(cancellationToken);
+        var logs = await _db.EmailLogs.AsNoTracking().Where(x => x.ClaimId == claimId).OrderByDescending(x => x.CreatedAt).ToListAsync(cancellationToken);
+        return logs.Select(Map).ToList();
     }
 
     private ClaimEmailDto Map(EmailLog x) => new(x.EmailId, x.ClientRequestId, x.ClaimId, x.GenerationId, x.RecipientEmail, x.ActualRecipientEmail, x.Subject, x.BodyHtml, x.Status, x.ProviderMessageId, x.ErrorMessage, x.CreatedAt, x.SentAt, _demoMode);
@@ -75,7 +76,7 @@ public sealed partial class ClaimEmailService : IClaimEmailService
     }
 
     [GeneratedRegex(@"<(script|style|iframe|object|embed)[^>]*>.*?</\1>", RegexOptions.IgnoreCase | RegexOptions.Singleline)] private static partial Regex DangerousBlocksRegex();
-    [GeneratedRegex(@"\s+on\w+\s*=\s*(['\"]).*?\1", RegexOptions.IgnoreCase | RegexOptions.Singleline)] private static partial Regex EventAttributesRegex();
+    [GeneratedRegex(@"\s+on\w+\s*=\s*(""[^""]*""|'[^']*'|[^\s>]+)", RegexOptions.IgnoreCase | RegexOptions.Singleline)] private static partial Regex EventAttributesRegex();
     [GeneratedRegex(@"javascript\s*:", RegexOptions.IgnoreCase)] private static partial Regex JavascriptUrlsRegex();
     [GeneratedRegex("<[^>]+>")] private static partial Regex TagsRegex();
     [GeneratedRegex(@"\s+")] private static partial Regex WhitespaceRegex();
