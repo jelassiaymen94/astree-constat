@@ -116,7 +116,7 @@ Créer une clé dans la console Groq, puis la définir uniquement dans l’envir
 ```bash
 export LLM_PROVIDER=groq
 export GROQ_API_KEY="<CLE_GROQ_LOCALE>"
-export GROQ_MODEL="llama-3.3-70b-versatile"
+export GROQ_MODEL="openai/gpt-oss-120b"
 export GROQ_TEMPERATURE=0.2
 export GROQ_MAX_TOKENS=1000
 export GROQ_TIMEOUT_SECONDS=20

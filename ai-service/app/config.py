@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     llm_provider: Literal["deterministic", "groq"] = "deterministic"
     groq_api_key: SecretStr | None = None
-    groq_model: str = "llama-3.3-70b-versatile"
+    groq_model: str = "openai/gpt-oss-120b"
     groq_temperature: float = Field(default=0.2, ge=0.0, le=2.0)
     groq_max_tokens: int = Field(default=1000, ge=1, le=8192)
     groq_timeout_seconds: float = Field(default=20.0, gt=0.0, le=120.0)

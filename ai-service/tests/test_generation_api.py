@@ -42,7 +42,8 @@ def test_deterministic_generation_preserves_contract(client, payload, generation
     body = response.json()
     assert body["content"]
     assert body["modelName"] == "deterministic-template"
-    assert body["promptVersion"] == "1.0"
+    assert body["promptVersion"] == "1.1"
+    assert body["content"].startswith("<p>")
     assert body["durationMs"] >= 1
     assert "Brouillon" in body["content"] or "brouillon" in body["content"]
 

@@ -7,6 +7,7 @@ from app.config import Settings
 from app.models import GenerationRequest
 from app.prompts import PROMPT_VERSION, build_messages
 from app.providers.base import GenerationProviderError, ProviderResult
+from app.text_formatting import sanitize_html_draft
 
 
 class GroqProvider:
@@ -34,8 +35,9 @@ class GroqProvider:
         except Exception as exception:
             raise self._map_error(exception) from exception
 
-        content = completion.choices[0].message.content if completion.choices else None
-        if not content or not content.strip():
+        raw_content = completion.choices[0].message.content if completion.choices else None
+        content = sanitize_html_draft(raw_content) if raw_content else ""
+        if not content:
             raise GenerationProviderError(
                 "GROQ_INVALID_RESPONSE",
                 "Groq a retourné une réponse vide ou invalide.",
@@ -43,7 +45,7 @@ class GroqProvider:
 
         duration_ms = max(1, round((perf_counter() - started) * 1000))
         return ProviderResult(
-            content=content.strip(),
+            content=content,
             model_name=getattr(completion, "model", None) or self._settings.groq_model,
             prompt_version=PROMPT_VERSION,
             duration_ms=duration_ms,
@@ -63,6 +65,11 @@ class GroqProvider:
             return GenerationProviderError(
                 "GROQ_AUTHENTICATION_ERROR",
                 "L'authentification Groq a échoué.",
+            )
+        if status_code == 404:
+            return GenerationProviderError(
+                "GROQ_MODEL_NOT_FOUND",
+                "Le modèle Groq configuré est indisponible ou inaccessible.",
             )
         if status_code == 429:
             return GenerationProviderError(

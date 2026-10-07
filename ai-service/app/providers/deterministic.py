@@ -2,15 +2,15 @@ from time import perf_counter
 
 from app.models import GenerationRequest
 from app.providers.base import ProviderResult
-from app.text_formatting import humanize_status
+from app.text_formatting import humanize_status, sanitize_html_draft
 
 
 class DeterministicProvider:
     async def generate(self, request: GenerationRequest) -> ProviderResult:
         started = perf_counter()
-        content = self._build_content(request)
+        content = sanitize_html_draft(self._build_content(request))
         duration_ms = max(1, round((perf_counter() - started) * 1000))
-        return ProviderResult(content=content, model_name="deterministic-template", prompt_version="1.0", duration_ms=duration_ms)
+        return ProviderResult(content=content, model_name="deterministic-template", prompt_version="1.1", duration_ms=duration_ms)
 
     @staticmethod
     def _build_content(request: GenerationRequest) -> str:

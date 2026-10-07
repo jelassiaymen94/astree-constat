@@ -59,19 +59,20 @@ def test_groq_provider_requires_api_key():
     assert captured.value.code == "GROQ_CONFIGURATION_ERROR"
 
 
-def test_groq_provider_returns_normalized_result():
-    completions = FakeCompletions(SimpleNamespace(model="llama-3.3-70b-versatile", choices=[SimpleNamespace(message=SimpleNamespace(content="Brouillon Groq à valider."))]))
+def test_groq_provider_returns_sanitized_html_result():
+    raw_content = '<h3>Brouillon Groq</h3><p><strong>Statut</strong> : Clos</p><script>alert(1)</script><p><em>À valider.</em></p>'
+    completions = FakeCompletions(SimpleNamespace(model="llama-3.3-70b-versatile", choices=[SimpleNamespace(message=SimpleNamespace(content=raw_content))]))
     provider = GroqProvider(settings(), FakeClient(completions))
     result = asyncio.run(provider.generate(make_request()))
-    assert result.content == "Brouillon Groq à valider."
+    assert result.content == '<h3>Brouillon Groq</h3><p><strong>Statut</strong> : Clos</p><p><em>À valider.</em></p>'
     assert result.model_name == "llama-3.3-70b-versatile"
-    assert result.prompt_version == "2.1"
+    assert result.prompt_version == "2.3"
     assert result.duration_ms >= 1
     assert completions.arguments["temperature"] == 0.2
     assert completions.arguments["max_completion_tokens"] == 1000
 
 
-@pytest.mark.parametrize(("status_code", "expected_code"), [(401, "GROQ_AUTHENTICATION_ERROR"), (403, "GROQ_AUTHENTICATION_ERROR"), (429, "GROQ_RATE_LIMITED"), (498, "GROQ_CAPACITY_EXCEEDED"), (503, "GROQ_UNAVAILABLE")])
+@pytest.mark.parametrize(("status_code", "expected_code"), [(401, "GROQ_AUTHENTICATION_ERROR"), (403, "GROQ_AUTHENTICATION_ERROR"), (404, "GROQ_MODEL_NOT_FOUND"), (429, "GROQ_RATE_LIMITED"), (498, "GROQ_CAPACITY_EXCEEDED"), (503, "GROQ_UNAVAILABLE")])
 def test_groq_errors_are_sanitized(status_code, expected_code):
     completions = FakeCompletions(error=FakeStatusError(status_code))
     provider = GroqProvider(settings(), FakeClient(completions))
@@ -100,4 +101,6 @@ def test_prompt_separates_rules_context_and_user_instruction():
     assert "<context_json>" in messages[1]["content"]
     assert "<instruction_utilisateur>" in messages[1]["content"]
     assert "estimatedAmount et compensationAmount sont en TND" in messages[1]["content"]
+    assert "fragment HTML" in messages[1]["content"]
+    assert "<strong>" in messages[0]["content"]
     assert "CLM-1" in messages[1]["content"]
